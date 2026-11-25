@@ -11,11 +11,11 @@ S5. "Se serve una decisione esterna, lascia il valore irrisolto e riportalo nel 
 
 ## Tasks
 
-T1 (S1,S3,S4) validate runtime configuration and add regression tests — inline, test-first — commit: pending
-T2 (S1,S3,S4) redact Telegram credentials from runtime failures — inline, test-first — commit: pending
-T3 (S1,S3) bound message length to Telegram limit — inline, test-first — commit: pending
-T4 (S1,S4) add CI workflow for compile and full test suite — inline — commit: pending
-T5 (S1-S5) review, commit and report unresolved checks — inline — commit: pending
+T1 (S1,S3,S4) validate runtime configuration and add regression tests — inline, test-first — commit: f0c2373
+T2 (S1,S3,S4) redact Telegram credentials from runtime failures — inline, test-first — commit: f0c2373
+T3 (S1,S3) bound message length to Telegram limit — inline, test-first — commit: f0c2373
+T4 (S1,S4) add CI workflow for compile and full test suite — inline — commit: f0c2373
+T5 (S1-S5) review, commit and report unresolved checks — inline — commit: f0c2373
 
 ## Log
 
