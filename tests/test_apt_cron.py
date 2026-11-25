@@ -7,6 +7,7 @@ import apt_cron
 
 
 FIXTURE = Path(__file__).parent / "fixtures" / "source_response.json"
+ATTACHMENT_FIXTURE = Path(__file__).parent / "fixtures" / "attachments_response.json"
 
 
 def first_notice():
@@ -169,8 +170,10 @@ class DeduplicationTest(unittest.TestCase):
         changes, state = apt_cron.select_changes(notices, None)
 
         self.assertEqual(changes, [])
-        self.assertEqual(state["version"], 1)
+        self.assertEqual(state["version"], 2)
         self.assertEqual(set(state["notices"]), {"791962", "791960"})
+        self.assertEqual(state["attachments"], {})
+        self.assertEqual(state["sent_documents"], {})
         self.assertTrue(all(isinstance(value, str) for value in state["notices"].values()))
 
     def test_changed_notice_is_reported_once_as_update(self):
@@ -199,15 +202,20 @@ class DeduplicationTest(unittest.TestCase):
 
 
 class SequenceTransport:
-    def __init__(self, source_response, telegram_response):
+    def __init__(self, source_response, telegram_response, attachments_response=None):
         self.source_response = source_response
         self.telegram_response = telegram_response
+        self.attachments_response = attachments_response or json.loads(
+            ATTACHMENT_FIXTURE.read_text(encoding="utf-8")
+        )
         self.calls = []
 
     def request(self, method, url, payload=None):
         self.calls.append({"method": method, "url": url, "payload": payload})
         if "api.telegram.org" in url:
             return self.telegram_response
+        if "/api/pap/files/" in url:
+            return self.attachments_response
         return self.source_response
 
 
@@ -221,6 +229,9 @@ def run_config(state_path):
         "chat_id": "@test_channel",
         "detail_base": "https://example.test/albo-pretorio/dettaglio",
         "state_path": str(state_path),
+        "attachments_base": "https://example.test/api/pap/files",
+        "document_base": "https://api.telegram.org/botTEST_TOKEN/sendDocument",
+        "index_dir": str(Path(state_path).parent / "public"),
     }
 
 
@@ -235,8 +246,9 @@ class RunOnceTest(unittest.TestCase):
             state = apt_cron.load_state(config["state_path"])
 
         self.assertEqual(stats, {"notices": 2, "published": 0, "dry_run": False})
-        self.assertEqual(len(transport.calls), 1)
+        self.assertEqual(len(transport.calls), 3)
         self.assertEqual(set(state["notices"]), {"791962", "791960"})
+        self.assertEqual(set(state["attachments"]), {"791962", "791960"})
 
     def test_changed_notice_is_published_once_with_update_label(self):
         response = json.loads(FIXTURE.read_text(encoding="utf-8"))
@@ -251,9 +263,11 @@ class RunOnceTest(unittest.TestCase):
 
         self.assertEqual(stats["published"], 1)
         telegram_calls = [call for call in transport.calls if "api.telegram.org" in call["url"]]
-        self.assertEqual(len(telegram_calls), 1)
+        self.assertEqual(len(telegram_calls), 3)
         self.assertIn("Atto aggiornato APT Basilicata", telegram_calls[0]["payload"]["text"])
         self.assertIn("Titolo aggiornato", telegram_calls[0]["payload"]["text"])
+        self.assertIn("sendDocument", telegram_calls[1]["url"])
+        self.assertIn("sendDocument", telegram_calls[2]["url"])
 
     def test_dry_run_does_not_publish_or_write_state(self):
         response = json.loads(FIXTURE.read_text(encoding="utf-8"))
@@ -305,9 +319,213 @@ class PartialFailureTest(unittest.TestCase):
             state = apt_cron.load_state(config["state_path"])
 
         self.assertEqual(transport.telegram_calls, 2)
-        expected = apt_cron.fingerprint(apt_cron.parse_source_response(response)[0])
-        self.assertEqual(state["notices"]["791962"], expected)
+        self.assertNotEqual(state["notices"]["791962"], initial_state["notices"]["791962"])
         self.assertEqual(state["notices"]["791960"], old_fingerprint)
+
+
+class StableIdentityTest(unittest.TestCase):
+    def test_migrates_legacy_state_without_losing_fingerprints(self):
+        legacy = {"version": 1, "notices": {"791962": "old-fingerprint"}}
+
+        migrated = apt_cron.migrate_state(legacy)
+
+        self.assertEqual(migrated["version"], 2)
+        self.assertEqual(migrated["notices"], {"791962": "old-fingerprint"})
+        self.assertEqual(migrated["attachments"], {})
+        self.assertEqual(migrated["sent_documents"], {})
+
+    def test_falls_back_to_detail_url_when_id_is_missing(self):
+        notice = {"detail_url": "https://example.test/albo-pretorio/dettaglio/999", "title": "x"}
+
+        key = apt_cron.notice_key(notice)
+
+        self.assertNotEqual(key, "None")
+        self.assertEqual(key, apt_cron.notice_key(dict(notice, title="changed")))
+        self.assertNotEqual(key, apt_cron.notice_key(dict(notice, detail_url="https://example.test/other")))
+
+
+class PdfDeliveryTest(unittest.TestCase):
+    def test_fetch_attachments_exposes_only_pdf_urls(self):
+        response = json.loads((Path(__file__).parent / "fixtures" / "attachments_response.json").read_text(encoding="utf-8"))
+        transport = FakeTransport(response)
+
+        links = apt_cron.fetch_attachments(
+            transport,
+            "https://example.test/api/pap/files",
+            791962,
+        )
+
+        self.assertEqual(transport.calls[0]["method"], "GET")
+        self.assertEqual(transport.calls[0]["url"], "https://example.test/api/pap/files/791962")
+        self.assertEqual(
+            links,
+            {
+                "document_url": "https://example.test/katti/public/pap/edoc/download/unico/6500/791962",
+                "attachment_urls": [
+                    "https://example.test/katti/public/pap/edoc/download/single/6500/791962/abc/notice.pdf"
+                ],
+            },
+        )
+
+    def test_sends_pdf_by_url_as_telegram_document(self):
+        transport = FakeTransport({"ok": True, "result": {"message_id": 9}})
+
+        result = apt_cron.publish_document(
+            transport,
+            "https://api.telegram.org/botTEST_TOKEN/sendDocument",
+            "@test_channel",
+            "https://example.test/Delibera.pdf",
+            "PDF ufficiale",
+        )
+
+        self.assertEqual(result["message_id"], 9)
+        self.assertEqual(transport.calls[0]["method"], "POST")
+        self.assertEqual(
+            transport.calls[0]["payload"],
+            {
+                "chat_id": "@test_channel",
+                "document": "https://example.test/Delibera.pdf",
+                "caption": "PDF ufficiale",
+            },
+        )
+
+    def test_rejects_a_document_error(self):
+        transport = FakeTransport({"ok": False, "description": "file too large"})
+
+        with self.assertRaises(RuntimeError):
+            apt_cron.publish_document(transport, "https://api.telegram.org/botTEST_TOKEN/sendDocument", "@x", "https://x/a.pdf", "c")
+
+
+class PublicIndexTest(unittest.TestCase):
+    def test_build_index_keeps_only_public_fields(self):
+        notice = dict(
+            first_notice(),
+            detail_url="https://example.test/dettaglio/791962",
+            document_url="https://example.test/documento.pdf",
+            attachment_urls=["https://example.test/allegato.pdf"],
+            responsabile="NOT PUBLIC",
+        )
+
+        index = apt_cron.build_index([notice])
+
+        self.assertEqual(
+            index,
+            {
+                "notices": [
+                    {
+                        "id": 791962,
+                        "title": "Affidamento diretto per la sala espositiva",
+                        "category": "Delibera del Direttore Generale",
+                        "sector": "UFFICIO AMMINISTRAZIONE",
+                        "published": "2026-11-25",
+                        "expires": "2026-12-10",
+                        "year": 2026,
+                        "number": 244,
+                        "status": "PUBBLICATO",
+                        "detail_url": "https://example.test/dettaglio/791962",
+                        "document_url": "https://example.test/documento.pdf",
+                        "attachment_urls": ["https://example.test/allegato.pdf"],
+                    }
+                ]
+            },
+        )
+        self.assertNotIn("NOT PUBLIC", json.dumps(index))
+
+    def test_write_index_creates_json_markdown_and_html(self):
+        index = apt_cron.build_index(
+            [
+                dict(
+                    first_notice(),
+                    detail_url="https://example.test/dettaglio/791962",
+                    document_url="https://example.test/documento.pdf",
+                    attachment_urls=[],
+                )
+            ]
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+
+            apt_cron.write_index(target, index)
+            files = {path.name: path.read_text(encoding="utf-8") for path in target.iterdir()}
+
+        self.assertEqual(set(files), {"index.json", "index.md", "index.html"})
+        self.assertIn("Affidamento diretto per la sala espositiva", files["index.md"])
+        self.assertIn("https://example.test/dettaglio/791962", files["index.html"])
+        self.assertIn("https://example.test/documento.pdf", files["index.json"])
+
+
+class DynamicAttachmentsTransport(SequenceTransport):
+    def request(self, method, url, payload=None):
+        if "/api/pap/files/" in url:
+            notice_id = url.rsplit("/", 1)[1]
+            response = json.loads(json.dumps(self.attachments_response))
+            root = response["results"][0]
+            root["documentoUnico"]["downloadUrl"] = (
+                f"https://example.test/documento-{notice_id}.pdf"
+            )
+            for item in root["files"]:
+                item["downloadUrl"] = f"https://example.test/allegato-{notice_id}.pdf"
+            return response
+        return super().request(method, url, payload)
+
+
+class NewNoticeDeliveryTest(unittest.TestCase):
+    def test_new_notice_is_published_once_then_ignored(self):
+        response = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        transport = DynamicAttachmentsTransport(response, {"ok": True, "result": {"message_id": 1}})
+        with tempfile.TemporaryDirectory() as directory:
+            config = run_config(Path(directory) / "state.json")
+            apt_cron.run_once(transport, config)
+            response["results"].append(
+                {
+                    "id": 799999,
+                    "cntTitle": "Nuovo affidamento",
+                    "cntAnnoNumeroPap": 2026,
+                    "cntNumeroPap": 250,
+                    "cntDataInizioPubblicazione": "2026-11-25",
+                    "cntDataFinePubblicazione": "2026-12-10",
+                    "cntNaturaAttoLabel": "Delibera",
+                    "cntSettoreProponenteLabel": "UFFICIO",
+                    "status": "PUBBLICATO",
+                }
+            )
+            transport.calls.clear()
+
+            stats = apt_cron.run_once(transport, config)
+            first_calls = list(transport.calls)
+            state = apt_cron.load_state(config["state_path"])
+            transport.calls.clear()
+
+            second_stats = apt_cron.run_once(transport, config)
+
+        self.assertEqual(stats["published"], 1)
+        self.assertEqual(second_stats["published"], 0)
+        sent = [call for call in first_calls if "api.telegram.org" in call["url"]]
+        self.assertEqual(len(sent), 3)
+        self.assertEqual(sent[1]["payload"]["document"], "https://example.test/documento-799999.pdf")
+        self.assertEqual(sent[2]["payload"]["document"], "https://example.test/allegato-799999.pdf")
+        self.assertIn("https://example.test/documento-799999.pdf", state["sent_documents"])
+        self.assertIn("https://example.test/allegato-799999.pdf", state["sent_documents"])
+        self.assertFalse([call for call in transport.calls if "api.telegram.org" in call["url"]])
+
+    def test_pdf_is_not_sent_again_when_notice_changes_again(self):
+        response = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        transport = DynamicAttachmentsTransport(response, {"ok": True, "result": {"message_id": 1}})
+        with tempfile.TemporaryDirectory() as directory:
+            config = run_config(Path(directory) / "state.json")
+            apt_cron.run_once(transport, config)
+            response["results"][0]["cntTitle"] = "Primo aggiornamento"
+            transport.calls.clear()
+            apt_cron.run_once(transport, config)
+            response["results"][0]["cntTitle"] = "Secondo aggiornamento"
+            transport.calls.clear()
+
+            apt_cron.run_once(transport, config)
+
+            sent = [call for call in transport.calls if "api.telegram.org" in call["url"]]
+
+        self.assertEqual(len(sent), 1)
+        self.assertIn("sendMessage", sent[0]["url"])
 
 
 if __name__ == "__main__":

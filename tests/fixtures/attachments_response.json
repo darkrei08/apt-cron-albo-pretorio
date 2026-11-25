@@ -1,0 +1,31 @@
+{
+  "error": false,
+  "results": [
+    {
+      "documentoUnico": {
+        "tipoFile": "UNICO",
+        "mimeType": "application/pdf",
+        "title": "PAP-00244-2026",
+        "downloadUrl": "https://example.test/katti/public/pap/edoc/download/unico/6500/791962",
+        "position": 0
+      },
+      "files": [
+        {
+          "tipoFile": "ALLEGATO",
+          "mimeType": "application/pdf",
+          "title": "notice.pdf",
+          "downloadUrl": "https://example.test/katti/public/pap/edoc/download/single/6500/791962/abc/notice.pdf",
+          "position": 0
+        },
+        {
+          "tipoFile": "ALLEGATO",
+          "mimeType": "image/png",
+          "title": "non-pdf.png",
+          "downloadUrl": "https://example.test/katti/public/pap/edoc/download/single/6500/791962/def/non-pdf.png",
+          "position": 1
+        }
+      ]
+    }
+  ],
+  "totalElements": 1
+}
