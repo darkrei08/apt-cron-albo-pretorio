@@ -16,12 +16,12 @@ S10. "solo get post" was relaxed by the operator: "Consenti POST di sola lettura
 
 ## Tasks
 
-T1 (S1,S10,S6-S8) research source contract and api-anything evidence — inline — commit: pending
-T2 (S1,S3,S6) parse source JSON into minimal notice fields — inline, test-first — commit: pending
-T3 (S1,S3,S6) format accessible Telegram text from notice JSON — inline, test-first — commit: pending
-T4 (S1,S10) simulate source and Telegram HTTP requests; enforce no network in tests — inline, test-first — commit: pending
-T5 (S1,S4,S5) seed/deduplicate notices safely and publish only new or changed ones — inline, test-first — commit: pending
-T6 (S1,S9) expose cron configuration, README, and simulated end-to-end verification — inline — commit: pending
+T1 (S1,S10,S6-S8) research source contract and api-anything evidence — inline — commit: 3b638a1
+T2 (S1,S3,S6) parse source JSON into minimal notice fields — inline, test-first — commit: 3b638a1
+T3 (S1,S3,S6) format accessible Telegram text from notice JSON — inline, test-first — commit: 3b638a1
+T4 (S1,S10) simulate source and Telegram HTTP requests; enforce no network in tests — inline, test-first — commit: 3b638a1
+T5 (S1,S4,S5) seed/deduplicate notices safely and publish only new or changed ones — inline, test-first — commit: 3b638a1
+T6 (S1,S9) expose cron configuration, README, and simulated end-to-end verification — inline — commit: 3b638a1
 
 ## Log
 
