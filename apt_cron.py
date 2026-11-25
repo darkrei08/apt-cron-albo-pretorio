@@ -4,6 +4,7 @@ import html
 import json
 import os
 import re
+import sys
 import tempfile
 import unicodedata
 from datetime import date
@@ -321,25 +322,35 @@ def publish_message(transport, telegram_url, chat_id, text):
     return response["result"]
 
 
+TELEGRAM_TEXT_LIMIT = 4096
+
+
 def format_message(notice, detail_base, updated=False):
     headline = "Atto aggiornato APT Basilicata" if updated else "Nuovo atto APT Basilicata"
-    return "\n".join(
-        [
-            headline,
-            f"Data: {_display_date(notice.get('published'))}",
-            f"Titolo: {notice.get('title') or ''}",
-            f"Categoria: #{_hashtag(notice.get('category'))}",
-            f"Settore: #{_hashtag(notice.get('sector'))}",
-            f"Atto: {notice.get('number') or ''}/{notice.get('year') or ''}",
-            f"Stato: {notice.get('status') or ''}",
-            f"Link: {notice.get('detail_url') or detail_base.rstrip('/') + '/' + str(notice.get('id') or '')}",
-        ]
-        + (
-            [f"PDF: {notice['document_url']}"]
-            if notice.get("document_url")
-            else []
-        )
-    )
+    lines = [
+        headline,
+        f"Data: {_display_date(notice.get('published'))}",
+        f"Titolo: {notice.get('title') or ''}",
+        f"Categoria: #{_hashtag(notice.get('category'))}",
+        f"Settore: #{_hashtag(notice.get('sector'))}",
+        f"Atto: {notice.get('number') or ''}/{notice.get('year') or ''}",
+        f"Stato: {notice.get('status') or ''}",
+        f"Link: {notice.get('detail_url') or detail_base.rstrip('/') + '/' + str(notice.get('id') or '')}",
+    ]
+    if notice.get("document_url"):
+        lines.append(f"PDF: {notice['document_url']}")
+
+    message = "\n".join(lines)
+    if len(message) > TELEGRAM_TEXT_LIMIT:
+        title_index = 2
+        overhead = len(message) - len(lines[title_index]) + 3
+        available = TELEGRAM_TEXT_LIMIT - overhead
+        if available > 0:
+            lines[title_index] = lines[title_index][:available] + "..."
+            message = "\n".join(lines)
+        else:
+            message = message[: TELEGRAM_TEXT_LIMIT - 3] + "..."
+    return message
 
 
 class UrllibTransport:
@@ -357,6 +368,21 @@ class UrllibTransport:
         )
         with urlopen(request, timeout=20) as response:
             return json.loads(response.read().decode("utf-8"))
+
+
+def parse_positive_int(value, name):
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"{name} must be a positive integer") from None
+    if parsed < 1:
+        raise ValueError(f"{name} must be a positive integer")
+    return parsed
+
+
+def redact_credentials(text, token):
+    message = str(text)
+    return message.replace(token, "[REDACTED]") if token else message
 
 
 def main(argv=None):
@@ -385,12 +411,17 @@ def main(argv=None):
     if not args.dry_run and (not token or not chat_id):
         parser.error("TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are required unless --dry-run is used")
 
+    try:
+        page_size = parse_positive_int(os.environ.get("APT_PAGE_SIZE", "20"), "APT_PAGE_SIZE")
+    except ValueError as error:
+        parser.error(str(error))
+
     config = {
         "source_url": args.source_url,
         "state_path": args.state_path,
         "today": date.today().isoformat(),
         "nature_id": os.environ.get("APT_NATURE_ID", "200152"),
-        "size": int(os.environ.get("APT_PAGE_SIZE", "20")),
+        "size": page_size,
         "detail_base": os.environ.get(
             "APT_DETAIL_BASE",
             "https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio",
@@ -402,7 +433,11 @@ def main(argv=None):
         "chat_id": chat_id,
         "dry_run": args.dry_run,
     }
-    stats = run_once(UrllibTransport(), config)
+    try:
+        stats = run_once(UrllibTransport(), config)
+    except Exception as error:
+        print(f"error: {redact_credentials(error, token)}", file=sys.stderr)
+        return 1
     print(json.dumps(stats, sort_keys=True))
     return 0
 

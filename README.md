@@ -84,6 +84,13 @@ Prefer a protected environment or cron file over literal credentials in a cronta
 
 **Not verified:** no live Telegram message or document was sent and no production cron schedule was installed. Automated tests use simulated HTTP on both sides. Long-term source availability, Telegram document size acceptance and client rendering should be checked in the destination channel before public use.
 
+## Production checks
+
+- `APT_PAGE_SIZE` must be a positive integer; invalid values exit with status 2.
+- Runtime failures print a single redacted line, so `TELEGRAM_BOT_TOKEN` is not written to logs.
+- Telegram text is bounded to 4096 characters by truncating the title while preserving the official link.
+- GitHub Actions runs compile and the full test suite on pushes to `main` and pull requests.
+
 ## Tests
 
 Run the full suite:

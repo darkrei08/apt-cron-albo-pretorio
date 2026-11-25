@@ -528,5 +528,33 @@ class NewNoticeDeliveryTest(unittest.TestCase):
         self.assertIn("sendMessage", sent[0]["url"])
 
 
+class ProductionConfigTest(unittest.TestCase):
+    def test_page_size_must_be_a_positive_integer(self):
+        self.assertEqual(apt_cron.parse_positive_int("20", "APT_PAGE_SIZE"), 20)
+        for value in ("bad", "0", "-1", ""):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                apt_cron.parse_positive_int(value, "APT_PAGE_SIZE")
+
+    def test_redacts_telegram_token_from_error_text(self):
+        error = "HTTP 401 at https://api.telegram.org/botSUPERSECRET/sendMessage"
+
+        redacted = apt_cron.redact_credentials(error, "SUPERSECRET")
+
+        self.assertNotIn("SUPERSECRET", redacted)
+        self.assertIn("[REDACTED]", redacted)
+
+    def test_message_stays_within_telegram_text_limit(self):
+        notice = dict(first_notice(), title="A" * 5000)
+
+        message = apt_cron.format_message(
+            notice,
+            "https://example.test/albo-pretorio/dettaglio",
+        )
+
+        self.assertLessEqual(len(message), 4096)
+        self.assertIn("Titolo: A", message)
+        self.assertTrue(message.endswith("/791962"))
+
+
 if __name__ == "__main__":
     unittest.main()
