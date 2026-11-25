@@ -13,12 +13,12 @@ S7. "Aggiungi test per primo invio, nessuna novità, nuovo atto e allegato PDF."
 
 ## Tasks
 
-T1 (S1,S6) stable notice identity and versioned persistent state — inline, test-first — commit: pending
-T2 (S1,S2,S7) fetch public PDF links and send PDF as Telegram document once — inline, test-first — commit: pending
-T3 (S3,S4,S5) generate JSON, Markdown and HTML public index from safe fields — inline, test-first — commit: pending
-T4 (S1,S3) integrate enrichment, index generation and CLI configuration — inline — commit: pending
-T5 (S2-S5) update README and Wayfinder references — inline — commit: pending
-T6 (S1-S7) review and commit the work unit — inline — commit: pending
+T1 (S1,S6) stable notice identity and versioned persistent state — inline, test-first — commit: 719f5ae
+T2 (S1,S2,S7) fetch public PDF links and send PDF as Telegram document once — inline, test-first — commit: 719f5ae
+T3 (S3,S4,S5) generate JSON, Markdown and HTML public index from safe fields — inline, test-first — commit: 719f5ae
+T4 (S1,S3) integrate enrichment, index generation and CLI configuration — inline — commit: 719f5ae
+T5 (S2-S5) update README and Wayfinder references — inline — commit: 719f5ae
+T6 (S1-S7) review and commit the work unit — inline — commit: 719f5ae
 
 ## Log
 
