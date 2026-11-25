@@ -1,0 +1,11 @@
+
+# Pi Herdr Orchestration runtime state
+.worktrees/
+.codegraph/
+.atl/
+
+# Cron runtime state
+state/
+cron.log
+__pycache__/
+*.pyc

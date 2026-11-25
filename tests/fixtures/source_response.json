@@ -1,0 +1,33 @@
+{
+  "error": false,
+  "results": [
+    {
+      "id": 791962,
+      "cntAnnoNumeroPap": 2026,
+      "cntNumeroPap": 244,
+      "cntDataInizioPubblicazione": "2026-11-25",
+      "cntDataFinePubblicazione": "2026-12-10",
+      "cntNaturaAttoLabel": "Delibera del Direttore Generale",
+      "cntSettoreProponenteLabel": "UFFICIO AMMINISTRAZIONE",
+      "cntResponsabileProcedimento": "NOT IN OUTPUT",
+      "cntTitle": "Affidamento diretto per la sala espositiva",
+      "status": "PUBBLICATO"
+    },
+    {
+      "id": 791960,
+      "cntAnnoNumeroPap": 2026,
+      "cntNumeroPap": 243,
+      "cntDataInizioPubblicazione": "2026-11-25",
+      "cntDataFinePubblicazione": "2026-12-10",
+      "cntNaturaAttoLabel": "Delibera del Direttore Generale",
+      "cntSettoreProponenteLabel": "UFFICIO AMMINISTRAZIONE",
+      "cntResponsabileProcedimento": "ALSO NOT IN OUTPUT",
+      "cntTitle": "D.G.R. N. 462 del 28.07.2026",
+      "status": "PUBBLICATO"
+    }
+  ],
+  "page": 0,
+  "totalPages": 1,
+  "totalElements": 2,
+  "elementsPerPage": 20
+}
