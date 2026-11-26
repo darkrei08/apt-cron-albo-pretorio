@@ -297,12 +297,16 @@ def fetch_attachments(transport, attachments_base, notice_id):
     if not results:
         return empty
     root = results[0]
-    document = root.get("documentoUnico", {})
-    if not isinstance(document, dict):
-        raise RuntimeError("attachments response document must be an object")
-    files = root.get("files", [])
-    if not isinstance(files, list) or any(not isinstance(item, dict) for item in files):
-        raise RuntimeError("attachments response files must be a list of objects")
+    document = root.get("documentoUnico")
+    if document is not None and not isinstance(document, dict):
+        raise RuntimeError("attachments response document must be an object or null")
+    document = document or {}
+    files = root.get("files")
+    if files is not None and (
+        not isinstance(files, list) or any(not isinstance(item, dict) for item in files)
+    ):
+        raise RuntimeError("attachments response files must be a list of objects or null")
+    files = files or []
     document_url = (
         (public_url(document.get("downloadUrl")) or None)
         if document.get("mimeType") == "application/pdf"

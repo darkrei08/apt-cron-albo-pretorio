@@ -1393,6 +1393,15 @@ class PdfDeliveryTest(unittest.TestCase):
 
         self.assertEqual(links, {"document_url": None, "attachment_urls": ["https://example.test/a.pdf"]})
 
+    def test_absent_attachment_fields_are_empty_not_errors(self):
+        response = {"results": [{"documentoUnico": None, "files": None}]}
+
+        links = apt_cron.fetch_attachments(
+            FakeTransport(response), "https://example.test/api/pap/files", 791962
+        )
+
+        self.assertEqual(links, {"document_url": None, "attachment_urls": []})
+
     def test_rejects_malformed_attachment_results(self):
         for response in (
             {},
@@ -1401,7 +1410,6 @@ class PdfDeliveryTest(unittest.TestCase):
             {"results": [{"documentoUnico": []}]},
             {"results": [{"documentoUnico": False}]},
             {"results": [{"documentoUnico": 0}]},
-            {"results": [{"files": None}]},
             {"results": [{"files": ""}]},
             {"results": [{"files": False}]},
             {"results": [{"files": 0}]},
