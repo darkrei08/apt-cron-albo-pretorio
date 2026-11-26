@@ -22,13 +22,19 @@ captions stay at 0-1024 characters.
 
 `format_message` renders Telegram HTML and `publish_message` sends `parse_mode: HTML`.
 
-1. **Visible part.** Bold headline (`Nuovo atto` / `Atto aggiornato`), the act number and year
-   underlined, then in order: title, published date, expiry date, document date from
-   `cntDataDocumentoOrigine` when present, the category and sector hashtags on one line, the status, and
-   the labelled official link. The PDF document and attachment links follow as labelled links. The
-   newest act is the last message in the chat, and inside the message its identity is now the first
-   thing read.
-2. **Everything else inside the quote.** All remaining non-empty public fields from `NOTICE_FIELDS`
+1. **Visible part.** Bold headline, the act number and year underlined, then in order: title,
+   published date, expiry date, document date from `cntDataDocumentoOrigine` when present, the category
+   and sector hashtags on one line, the status, and the labelled official link. The PDF document and
+   attachment links follow as labelled links. The newest act is the last message in the chat, and inside
+   the message its identity is now the first thing read.
+2. **The headline states the act state.** Four fixed Italian labels, decided in this order:
+   `Atto aggiornato APT Basilicata` when the notice changed since the last run, `Atto scaduto APT
+   Basilicata` when `status` is `SCADUTO` or `expires` is a parsable ISO date earlier than the run's
+   `today`, `Atto archiviato APT Basilicata` when the run is the archive backfill, and `Nuovo atto APT
+   Basilicata` otherwise. Precedence is updated, expired, archived, new, so an expired act inside a
+   backfill is labelled expired. The state is derived from fields already published (`status`,
+   `expires`) plus the run mode: no new source field, no state migration and no extra Telegram call.
+3. **Everything else inside the quote.** All remaining non-empty public fields from `NOTICE_FIELDS`
    (`id`, `otypeId` and the other technical register fields) are one `Label: value` line each inside
    `<blockquote expandable>`. The quote collapses in the client, so the visible message is short and no
    public field is lost.
@@ -61,13 +67,23 @@ the same `_field_rows` used by the index, so the message and the index cannot dr
   notices reach it, and the tests assert balanced tags at that point.
 - Rendering in a real client was not re-verified by this change: the private-channel checklist still
   governs live sign-off, and no live message was sent while implementing this ADR.
+- The headline is text only. The status field keeps its own escaped `Stato:` line, and nothing in the
+  message changes colour, so the state is readable in every client, including one that ignores
+  `blockquote expandable`.
+- `today` is the run's own date and comes from the configuration; no clock is read in `format_message`,
+  so the rendered message is a pure function of the notice and the run mode and a test can pin it.
+- A backfill of the whole history labels every act archived except the ones already expired; nothing
+  in the stored state records the label, so a later run re-renders from scratch.
 
 ## Evidence
 
 - `apt_cron.py`: `MESSAGE_MAIN_FIELDS`, `QUOTE_OPEN`, `_esc`, `_link`, `_clip`, `_bounded`,
-  `format_message`, `publish_message` (`parse_mode`), `_display_date` (tolerates a non-ISO value),
+  `_is_expired`, `_act_headline`, `format_message`, `run_once` (passes `archive` and `today`),
+  `publish_message` (`parse_mode`), `_display_date` (tolerates a non-ISO value),
   `TELEGRAM_TEXT_LIMIT`.
 - `tests/test_apt_cron.py`: `FormatMessageTest` (exact layout, escaping, unknown expiry, document date,
-  every public field in the quote, no internal field), `PublishMessageTest.test_posts_html_to_telegram`,
+  every public field in the quote, no internal field, the four headlines and their precedence),
+  `BackfillHeadlineTest` (a backfill labels the history archived and an act expired before `today`),
+  `RunOnceTest` (a regular run keeps the new/updated headline), `PublishMessageTest.test_posts_html_to_telegram`,
   `ProductionConfigTest.test_message_stays_within_telegram_text_limit` (length and tag balance).
 - `README.md`: message format paragraph, production checks, tests paragraph.

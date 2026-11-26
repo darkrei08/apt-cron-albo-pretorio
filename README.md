@@ -21,7 +21,12 @@ the chat. The index keeps the source order, newest first.
 The message is sent with `parse_mode` `HTML` ([ADR 0009](docs/adr/0009-readable-telegram-act-message.md)).
 A bold headline, the underlined act number and year, the title, the publication and expiry dates, the
 document date when the source has one, the category and sector hashtags, the status and the labelled
-official and PDF links are visible. Every other non-empty public field sits in an expandable
+official and PDF links are visible. The headline states the act state in one fixed text label:
+`Nuovo atto APT Basilicata` by default, `Atto aggiornato APT Basilicata` when the act changed since the
+last run, `Atto scaduto APT Basilicata` when the status is `SCADUTO` or the expiry date is before the run
+date, and `Atto archiviato APT Basilicata` for acts published by the archive backfill. Precedence is
+updated, expired, archived, new. The state comes from fields already published plus the run mode, so the
+headline adds no source field and needs no state migration. Every other non-empty public field sits in an expandable
 `<blockquote>`, so the message stays short without dropping a field. When the source has no expiry
 date the quote says `Scadenza: non nota`. Every dynamic value is HTML-escaped, and the rendered HTML is
 bounded to 4096 characters.
@@ -170,4 +175,4 @@ Run the full suite:
 python3 -m unittest discover -s tests -v
 ```
 
-The tests use local fixtures and fake transports; they do not contact APT Basilicata or Telegram. They cover the published outputs (Telegram HTML, captions, index files), the exact message layout, HTML escaping of hostile values, the unknown-expiry note, the multipart document upload and its 50 MB bound, the exact included and excluded field sets, the unchanged dedupe behavior, the credential-free refresh path, the archive criteria and pagination, the oldest-to-newest publication order and the `--backfill` path.
+The tests use local fixtures and fake transports; they do not contact APT Basilicata or Telegram. They cover the published outputs (Telegram HTML, captions, index files), the exact message layout, the four state headlines and their precedence, HTML escaping of hostile values, the unknown-expiry note, the multipart document upload and its 50 MB bound, the exact included and excluded field sets, the unchanged dedupe behavior, the credential-free refresh path, the archive criteria and pagination, the oldest-to-newest publication order and the `--backfill` path.

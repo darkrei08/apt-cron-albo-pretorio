@@ -418,7 +418,13 @@ def run_once(transport, config):
     committed_state = next_state if state is None else dict(state, notices=dict(state["notices"]))
     published = 0
     for notice, updated in publication_order(changes):
-        text = format_message(notice, config["detail_base"], updated=updated)
+        text = format_message(
+            notice,
+            config["detail_base"],
+            updated=updated,
+            archived=archive,
+            today=config["today"],
+        )
         if not dry_run:
             publish_message(transport, config["telegram_url"], config["chat_id"], text)
             key = notice_key(notice)
@@ -526,8 +532,28 @@ def _bounded(head, quote):
     return render(head, _clip(quote, budget))
 
 
-def format_message(notice, detail_base, updated=False):
-    headline = "Atto aggiornato APT Basilicata" if updated else "Nuovo atto APT Basilicata"
+def _is_expired(notice, today):
+    if str(notice.get("status") or "").strip().upper() == "SCADUTO":
+        return True
+    try:
+        return date.fromisoformat(str(today)) > date.fromisoformat(str(notice.get("expires")))
+    except ValueError:
+        return False
+
+
+def _act_headline(notice, updated, archived, today):
+    # Precedence is fixed: a changed act is updated, an expired one is expired before archived.
+    if updated:
+        return "Atto aggiornato APT Basilicata"
+    if _is_expired(notice, today):
+        return "Atto scaduto APT Basilicata"
+    if archived:
+        return "Atto archiviato APT Basilicata"
+    return "Nuovo atto APT Basilicata"
+
+
+def format_message(notice, detail_base, updated=False, archived=False, today=None):
+    headline = _act_headline(notice, updated, archived, today)
     head = [
         f"<b>{headline}</b>",
         f"<u>Atto {_esc(notice.get('number'))}/{_esc(notice.get('year'))}</u>",

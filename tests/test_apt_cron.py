@@ -253,6 +253,65 @@ class FormatMessageTest(unittest.TestCase):
             apt_cron.format_message(notice, "https://example.test/dettaglio"),
         )
 
+    def test_new_act_is_the_default_headline(self):
+        message = apt_cron.format_message(
+            first_notice(), "https://example.test/albo-pretorio/dettaglio"
+        )
+
+        self.assertTrue(message.startswith("<b>Nuovo atto APT Basilicata</b>\n"))
+
+    def test_updated_act_headline_is_unchanged(self):
+        message = apt_cron.format_message(
+            first_notice(), "https://example.test/albo-pretorio/dettaglio", updated=True
+        )
+
+        self.assertTrue(message.startswith("<b>Atto aggiornato APT Basilicata</b>\n"))
+
+    def test_archived_act_headline(self):
+        message = apt_cron.format_message(
+            first_notice(), "https://example.test/albo-pretorio/dettaglio", archived=True
+        )
+
+        self.assertTrue(message.startswith("<b>Atto archiviato APT Basilicata</b>\n"))
+
+    def test_expired_headline_wins_over_archived_for_a_scaduto_status(self):
+        notice = first_notice()
+        notice["status"] = "SCADUTO"
+
+        message = apt_cron.format_message(
+            notice, "https://example.test/albo-pretorio/dettaglio", archived=True
+        )
+
+        self.assertTrue(message.startswith("<b>Atto scaduto APT Basilicata</b>\n"))
+
+    def test_expired_headline_when_the_expiry_is_before_today(self):
+        notice = first_notice()
+        notice["expires"] = "2026-12-10"
+        base = "https://example.test/albo-pretorio/dettaglio"
+
+        expired = apt_cron.format_message(notice, base, archived=True, today="2026-12-11")
+        same_day = apt_cron.format_message(notice, base, archived=True, today="2026-12-10")
+        notice["expires"] = "non una data"
+        unparsable = apt_cron.format_message(notice, base, archived=True, today="2026-12-11")
+
+        self.assertTrue(expired.startswith("<b>Atto scaduto APT Basilicata</b>\n"))
+        self.assertTrue(same_day.startswith("<b>Atto archiviato APT Basilicata</b>\n"))
+        self.assertTrue(unparsable.startswith("<b>Atto archiviato APT Basilicata</b>\n"))
+
+    def test_updated_headline_wins_over_expired_and_archived(self):
+        notice = first_notice()
+        notice["status"] = "SCADUTO"
+
+        message = apt_cron.format_message(
+            notice,
+            "https://example.test/albo-pretorio/dettaglio",
+            updated=True,
+            archived=True,
+            today="2030-01-01",
+        )
+
+        self.assertTrue(message.startswith("<b>Atto aggiornato APT Basilicata</b>\n"))
+
 
 class FakeTransport:
     def __init__(self, response):
@@ -529,6 +588,24 @@ class RunOnceTest(unittest.TestCase):
         self.assertEqual(set(state["notices"]), {"791962", "791960"})
         self.assertEqual(set(state["attachments"]), {"791962", "791960"})
 
+    def test_a_regular_run_keeps_the_new_headline_and_never_marks_acts_archived(self):
+        response = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        transport = SequenceTransport(response, {"ok": True, "result": {"message_id": 1}})
+        with tempfile.TemporaryDirectory() as directory:
+            config = run_config(Path(directory) / "state.json")
+            apt_cron.run_once(transport, config)
+            response["results"][0]["status"] = "SCADUTO"
+            transport.calls.clear()
+
+            apt_cron.run_once(transport, config)
+            headlines = [
+                call["payload"]["text"].splitlines()[0]
+                for call in transport.calls
+                if "sendMessage" in call["url"]
+            ]
+
+        self.assertEqual(headlines, ["<b>Atto aggiornato APT Basilicata</b>"])
+
     def test_changed_notice_is_published_once_with_update_label(self):
         response = json.loads(FIXTURE.read_text(encoding="utf-8"))
         transport = SequenceTransport(response, {"ok": True, "result": {"message_id": 2}})
@@ -566,6 +643,49 @@ class RunOnceTest(unittest.TestCase):
             self.assertEqual(stats, {"notices": 2, "published": 1, "dry_run": True})
             self.assertEqual(len(transport.calls), 1)
             self.assertTrue(apt_cron.load_state(config["state_path"]))
+
+
+class BackfillHeadlineTest(unittest.TestCase):
+    def test_backfill_labels_the_whole_history_as_archived(self):
+        response = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        transport = SequenceTransport(response, {"ok": True, "result": {"message_id": 1}})
+        with tempfile.TemporaryDirectory() as directory:
+            config = run_config(Path(directory) / "state.json")
+            config["archive"] = True
+
+            stats = apt_cron.run_once(transport, config)
+            headlines = [
+                call["payload"]["text"].splitlines()[0]
+                for call in transport.calls
+                if "sendMessage" in call["url"]
+            ]
+
+        self.assertEqual(stats["published"], 2)
+        self.assertEqual(headlines, ["<b>Atto archiviato APT Basilicata</b>"] * 2)
+
+    def test_backfill_says_expired_when_the_expiry_is_before_today(self):
+        response = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        response["results"][0]["cntDataFinePubblicazione"] = "2026-11-01"
+        response["results"][1]["cntDataInizioPubblicazione"] = "2026-11-20"
+        transport = SequenceTransport(response, {"ok": True, "result": {"message_id": 1}})
+        with tempfile.TemporaryDirectory() as directory:
+            config = run_config(Path(directory) / "state.json")
+            config["archive"] = True
+
+            apt_cron.run_once(transport, config)
+            headlines = [
+                call["payload"]["text"].splitlines()[0]
+                for call in transport.calls
+                if "sendMessage" in call["url"]
+            ]
+
+        self.assertEqual(
+            headlines,
+            [
+                "<b>Atto archiviato APT Basilicata</b>",
+                "<b>Atto scaduto APT Basilicata</b>",
+            ],
+        )
 
 
 class PublicationOrderTest(unittest.TestCase):
