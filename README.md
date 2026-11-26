@@ -1,20 +1,25 @@
 # cron-albo-pretorio
 
-Publishes new and changed notices from the official APT Basilicata public notices register to a Telegram channel. The job uses only Python's standard library and calls no LLM.
+Publishes new and changed notices from the official APT Basilicata public notices register to a Telegram channel, and keeps a public index of the current notices published from this repository. The job uses only Python's standard library and calls no LLM.
 
 The Wayfinder map is [APT public notices crawler and notification plan](https://github.com/darkrei08/apt-cron-albo-pretorio/issues/1). It records the operator decisions and the linked ticket graph. The current dependency order is in [docs/wayfinder-execution-order.md](docs/wayfinder-execution-order.md). Decision records are in [docs/adr/](docs/adr/), and the live Telegram validation checklist is in [docs/validation/telegram-private-channel.md](docs/validation/telegram-private-channel.md).
 
 ## How it works
 
 1. Reads the official APT Basilicata public notices API once per run.
-2. Extracts only title, category, sector, publication dates, year, notice number, status and official detail link.
+2. Extracts every public field the register exposes for an act: 41 source keys covering title, category, sector, publication dates, year, notice number, status and the remaining register fields, excluding only internal account, login, audit and responsible-person keys.
 3. Reads official PDF links from the source attachment endpoint and caches them in local state.
 4. Compares SHA-256 fingerprints with local state.
-5. Sends a plain-text message with the official PDF link, then sends the PDF files to Telegram by URL for new or changed notices. Each PDF URL is sent once.
-6. Regenerates `public/index.json`, `public/index.md` and `public/index.html` from public fields only.
+5. Sends a plain-text message with the official links, then sends the PDF files to Telegram by URL for new or changed notices. Each PDF URL is sent once; the document caption identifies the act number and year.
+6. Regenerates `public/index.json`, `public/index.md` and `public/index.html` from the same published fields.
 7. Saves state incrementally after each successful publish.
+8. A scheduled GitHub Actions workflow refreshes the index hourly and commits only changed `public/index.*` files.
 
 The first run seeds state from the current source without publishing. This avoids an initial channel flood.
+
+Fingerprints cover every published field, so a deploy that changes the field set changes every fingerprint. Move or delete `APT_STATE_PATH` once before the first run after such a change; otherwise that run publishes every current notice as an update.
+
+The publication boundary is fixed by [ADR 0005](docs/adr/0005-publication-boundary.md): there are two publication surfaces, the Telegram channel and the committed `public/index.*`, and both carry the same field set. Every public field of an act is published, including `Titolo` and `Settore`; only the internal account, login, audit and responsible-person keys (`cntAutore*`, `cntResponsabileProcedimento*`, `cntResponsabilePubblicazione*`, `ultimaAnnotazione*`) never leave the source projection.
 
 The source API exposes notice discovery only as a read-only `POST /api/pap/filter`, confirmed by the [official OpenAPI document](https://siopi.publisys.it/kapi-aptbasilicata/v3/api-docs). The user authorized that POST. PDF links are read with `GET /api/pap/files/{id}`. Publishing uses `POST /sendMessage` and `POST /sendDocument`.
 
@@ -34,8 +39,8 @@ No third-party Python package is required.
 
 | Variable | Required | Default | Purpose |
 | --- | --- | --- | --- |
-| `TELEGRAM_BOT_TOKEN` | yes, unless `--dry-run` | none | Bot token; keep it outside Git |
-| `TELEGRAM_CHAT_ID` | yes, unless `--dry-run` | none | Channel or chat identifier |
+| `TELEGRAM_BOT_TOKEN` | yes, unless `--dry-run` or `--refresh-index` | none | Bot token; keep it outside Git |
+| `TELEGRAM_CHAT_ID` | yes, unless `--dry-run` or `--refresh-index` | none | Channel or chat identifier |
 | `APT_SOURCE_URL` | no | `https://siopi.publisys.it/kapi-aptbasilicata/api/pap/filter` | API base URL, without query string |
 | `APT_NATURE_ID` | no | `200152` | Notice category identifier from the source |
 | `APT_PAGE_SIZE` | no | `20` | Number of notices requested per run |
@@ -54,6 +59,13 @@ Simulate a read without publishing or writing state:
 python3 apt_cron.py --dry-run
 ```
 
+Rebuild `public/index.*` from the current source without credentials and without touching state. This
+is the path the hourly workflow uses:
+
+```sh
+python3 apt_cron.py --refresh-index
+```
+
 Publish new or changed notices from a protected environment file readable only by the service user:
 
 ```sh
@@ -66,10 +78,16 @@ python3 apt_cron.py
 Hourly cron example:
 
 ```cron
-0 * * * * cd /path/to/cron-albo-pretorio && CRON_TZ=Europe/Rome TZ=Europe/Rome /bin/sh -c '. /etc/apt-cron/albo.env && exec /usr/bin/python3 apt_cron.py' >> cron.log 2>&1
+0 * * * * cd /path/to/cron-albo-pretorio && CRON_TZ=Europe/Rome TZ=Europe/Rome /usr/bin/flock -n /tmp/apt-cron.lock /bin/sh -c '. /etc/apt-cron/albo.env && exec /usr/bin/python3 apt_cron.py' >> cron.log 2>&1
 ```
 
-Do not put literal credentials in shell history or crontab lines.
+Do not put literal credentials in shell history or crontab lines. Set `CRON_TZ` and `TZ` to
+`Europe/Rome` as in the example, and set `MAILTO` so a failed run reaches the maintainer.
+
+The committed index is refreshed by `.github/workflows/update-index.yml` every hour and on manual
+dispatch. The workflow needs no Telegram credentials: it runs `apt_cron.py --refresh-index` and
+commits only changed `public/index.json`, `public/index.md` and `public/index.html` with the
+repository `GITHUB_TOKEN`.
 
 ## Download section
 
@@ -79,21 +97,22 @@ Do not put literal credentials in shell history or crontab lines.
 
 **When:** once per invocation. The intended schedule is hourly, but scheduling is the operator's choice and is not performed by the script.
 
-**Where it is saved:** raw responses stay in memory. SHA-256 fingerprints, cached official PDF URLs and URLs already sent to Telegram are written to `APT_STATE_PATH` (`state/notices.json` by default). Generated public index files are written to `APT_INDEX_DIR` (`public/` by default) and can be reviewed and committed by the operator. No PDF bytes are written. The field allowlist excludes dedicated personal-name, RUP, responsible-person and non-public-group fields; free-text title and sector values are not inspected for embedded names, so real-payload PII review remains open.
+**Where it is saved:** raw responses stay in memory. SHA-256 fingerprints, cached official PDF URLs and URLs already sent to Telegram are written to `APT_STATE_PATH` (`state/notices.json` by default). Generated public index files are written to `APT_INDEX_DIR` (`public/` by default) and are committed to this repository by the hourly workflow, so the repository and any hosting of it are a publication surface. No PDF bytes are written. The field allowlist publishes every public field of an act, so the free-text fields (`Titolo`, `Categoria`, `Settore`, `Proponente`, `Autorita mittente`, notes) are published text; it excludes only the internal account, login, audit and responsible-person keys listed above.
 
-**What the project does:** reads public metadata and official PDF links, publishes a short message followed by the PDF documents, records fingerprints and sent URLs, and generates a public index from the same allowed fields. It does not copy official documents into the repository or into a local archive.
+**What the project does:** reads public metadata and official PDF links, publishes a short message followed by the PDF documents, records fingerprints and sent URLs, and regenerates the published index from the same allowed fields. It does not copy official documents into the repository or into a local archive.
 
-**What the operator is responsible for:** providing credentials, choosing the state and index paths, scheduling the job, protecting logs, reviewing generated index files before committing them, checking that the Telegram bot has the right permissions, monitoring failures, and deciding how to remove published messages if a source notice is withdrawn or a data-rights request arrives. Adding personal names, RUPs, responsible persons or non-public groups would require a new Wayfinder decision; none is enabled here.
+**What the operator is responsible for:** providing credentials through the protected environment file, choosing the state and index paths, scheduling the job, protecting logs, checking that the Telegram bot has the right permissions, monitoring failures, and answering data-rights requests. Withdrawal is not automated: a withdrawn notice stays in the channel as the permanent record and leaves the index on the next hourly refresh (ADR 0004). Publishing a key that the allowlist excludes (an internal account, login, audit or responsible-person field) would require a new Wayfinder decision; every other public field of an act is already published. After a change to the field set, reseed state once as described above.
 
-**Not verified:** no live Telegram message or document was sent and no production cron schedule was installed. Automated tests use simulated HTTP on both sides. Long-term source availability, Telegram document size acceptance and client rendering should be checked in the destination channel before public use.
+**Not verified:** no live Telegram message or document was sent and no production cron schedule was installed. The `--refresh-index` path was exercised against the live source (exit code `0`, 14 notices, 44 published keys per notice, index files written, no state file); the hourly workflow itself has never run on GitHub Actions. Automated tests use simulated HTTP on both sides. Long-term source availability, Telegram document size acceptance and client rendering should be checked in the destination channel before public use.
 
 ## Production checks
 
 - `APT_PAGE_SIZE` must be a positive integer; invalid values exit with status 2.
 - Runtime failures print a single redacted line, so `TELEGRAM_BOT_TOKEN` is not written to logs.
-- Telegram text is bounded to 4096 characters; the title is truncated when possible, with an extreme-overhead fallback that hard-cuts the message.
-- Telegram document captions are bounded to 1024 characters while preserving the `PDF ufficiale:` prefix.
-- GitHub Actions runs compile and the full test suite on pushes to `main` and pull requests.
+- Telegram text is bounded to 4096 characters by shortening the widest lines when a notice carries long values, so no published field can exceed the limit and no label is lost to a hard cut.
+- Document captions state the act number and year and are bounded to 1024 characters.
+- `--refresh-index` needs no Telegram credentials, writes no state and sends nothing.
+- GitHub Actions runs compile and the full test suite on pushes to `main` and pull requests, and refreshes the committed index hourly.
 
 ## Tests
 
@@ -103,4 +122,4 @@ Run the full suite:
 python3 -m unittest discover -s tests -v
 ```
 
-The tests use local fixtures and fake transports; they do not contact APT Basilicata or Telegram.
+The tests use local fixtures and fake transports; they do not contact APT Basilicata or Telegram. They cover the published outputs (Telegram text, captions, index files), the exact included and excluded field sets, the unchanged dedupe behavior, and the credential-free refresh path.

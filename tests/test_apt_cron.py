@@ -1,7 +1,10 @@
 import json
+import io
+import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 
 import apt_cron
 
@@ -9,45 +12,124 @@ import apt_cron
 FIXTURE = Path(__file__).parent / "fixtures" / "source_response.json"
 ATTACHMENT_FIXTURE = Path(__file__).parent / "fixtures" / "attachments_response.json"
 
+# The 41 source keys a filter response and an id query both expose, minus the 12 internal ones.
+INCLUDED_SOURCE_FIELDS = (
+    "id",
+    "otypeId",
+    "rootId",
+    "rootOtypeid",
+    "status",
+    "cntAnnoNumeroPap",
+    "cntAnnoNumeroRpap",
+    "cntAutoritaMittente",
+    "cntDataAnnullamento",
+    "cntDataAnnullamentoTime",
+    "cntDataDocumentoOrigine",
+    "cntDataFinePubblicazione",
+    "cntDataInizioPubblicazione",
+    "cntDataNumeroPap",
+    "cntDataNumeroPapTime",
+    "cntDataNumeroRpap",
+    "cntDataNumeroRpapTime",
+    "cntDataRigetto",
+    "cntDataRigettoTime",
+    "cntDate",
+    "cntDocumentoOrigine",
+    "cntDurataPubblicazione",
+    "cntExternalId",
+    "cntExternalOggetto",
+    "cntExternalSource",
+    "cntExternalStatus",
+    "cntNaturaAtto",
+    "cntNaturaAttoLabel",
+    "cntNoteAnnullamento",
+    "cntNoteRigetto",
+    "cntNumeri",
+    "cntNumeroDocumentoOrigine",
+    "cntNumeroGara",
+    "cntNumeroPap",
+    "cntNumeroRpap",
+    "cntParentObjectId",
+    "cntParentOtypeId",
+    "cntProponente",
+    "cntSettoreProponente",
+    "cntSettoreProponenteLabel",
+    "cntTitle",
+)
+
+EXCLUDED_SOURCE_FIELDS = (
+    "cntAutore",
+    "cntAutoreAnnullamento",
+    "cntAutoreAnnullamentoLogin",
+    "cntAutoreLogin",
+    "cntAutoreRigetto",
+    "cntAutoreRigettoLogin",
+    "cntResponsabileProcedimento",
+    "cntResponsabileProcedimentoLogin",
+    "cntResponsabilePubblicazione",
+    "cntResponsabilePubblicazioneLogin",
+    "ultimaAnnotazioneModifica",
+    "ultimaAnnotazioneRipubblicazione",
+)
+
 
 def first_notice():
     response = json.loads(FIXTURE.read_text(encoding="utf-8"))
     return apt_cron.parse_source_response(response)[0]
 
 
+def full_source_item():
+    item = {name: f"valore {name}" for name in INCLUDED_SOURCE_FIELDS}
+    for name in EXCLUDED_SOURCE_FIELDS:
+        item[name] = f"PRIVATE {name}"
+    item.update(
+        {
+            "id": 791962,
+            "cntAnnoNumeroPap": 2026,
+            "cntNumeroPap": 244,
+            "cntDataInizioPubblicazione": "2026-11-25",
+            "cntDataFinePubblicazione": "2026-12-10",
+            "cntNaturaAttoLabel": "Delibera del Direttore Generale",
+            "cntSettoreProponenteLabel": "UFFICIO AMMINISTRAZIONE",
+            "cntTitle": "Affidamento diretto per la sala espositiva",
+            "status": "PUBBLICATO",
+        }
+    )
+    return item
+
+
+def full_notice():
+    return apt_cron.parse_source_response({"results": [full_source_item()]})[0]
+
+
 class ParseSourceResponseTest(unittest.TestCase):
-    def test_extracts_only_allowed_notice_fields(self):
+    def test_projects_every_documented_public_source_field(self):
+        self.assertEqual(sorted(apt_cron.NOTICE_FIELDS.values()), sorted(INCLUDED_SOURCE_FIELDS))
+
+        notices = apt_cron.parse_source_response({"results": [full_source_item()]})
+
+        self.assertEqual(set(notices[0]), set(apt_cron.NOTICE_FIELDS))
+        for name in EXCLUDED_SOURCE_FIELDS:
+            self.assertNotIn(name, notices[0])
+        self.assertNotIn("PRIVATE", json.dumps(notices))
+
+    def test_extracts_the_fixture_values_and_drops_the_injected_person_field(self):
         response = json.loads(FIXTURE.read_text(encoding="utf-8"))
 
         notices = apt_cron.parse_source_response(response)
 
-        self.assertEqual(
-            notices,
-            [
-                {
-                    "id": 791962,
-                    "title": "Affidamento diretto per la sala espositiva",
-                    "category": "Delibera del Direttore Generale",
-                    "sector": "UFFICIO AMMINISTRAZIONE",
-                    "published": "2026-11-25",
-                    "expires": "2026-12-10",
-                    "year": 2026,
-                    "number": 244,
-                    "status": "PUBBLICATO",
-                },
-                {
-                    "id": 791960,
-                    "title": "D.G.R. N. 462 del 28.07.2026",
-                    "category": "Delibera del Direttore Generale",
-                    "sector": "UFFICIO AMMINISTRAZIONE",
-                    "published": "2026-11-25",
-                    "expires": "2026-12-10",
-                    "year": 2026,
-                    "number": 243,
-                    "status": "PUBBLICATO",
-                },
-            ],
-        )
+        self.assertEqual(notices[0]["id"], 791962)
+        self.assertEqual(notices[0]["title"], "Affidamento diretto per la sala espositiva")
+        self.assertEqual(notices[0]["category"], "Delibera del Direttore Generale")
+        self.assertEqual(notices[0]["sector"], "UFFICIO AMMINISTRAZIONE")
+        self.assertEqual(notices[0]["published"], "2026-11-25")
+        self.assertEqual(notices[0]["expires"], "2026-12-10")
+        self.assertEqual(notices[0]["year"], 2026)
+        self.assertEqual(notices[0]["number"], 244)
+        self.assertEqual(notices[0]["status"], "PUBBLICATO")
+        self.assertIsNone(notices[0]["cntNumeroGara"])
+        self.assertEqual(notices[1]["number"], 243)
+        self.assertEqual(set(notices[1]), set(apt_cron.NOTICE_FIELDS))
         self.assertNotIn("NOT IN OUTPUT", json.dumps(notices))
         self.assertNotIn("ALSO NOT IN OUTPUT", json.dumps(notices))
 
@@ -73,9 +155,35 @@ class FormatMessageTest(unittest.TestCase):
                     "Atto: 244/2026",
                     "Stato: PUBBLICATO",
                     "Link: https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/791962",
+                    "Scade il: 2026-12-10",
                 ]
             ),
         )
+
+    def test_includes_every_public_field_and_never_an_internal_one(self):
+        notice = full_notice()
+        notice.update(
+            detail_url="https://example.test/albo-pretorio/dettaglio/791962",
+            document_url="https://example.test/documento.pdf",
+            attachment_urls=["https://example.test/allegato.pdf"],
+        )
+
+        message = apt_cron.format_message(
+            notice, "https://example.test/albo-pretorio/dettaglio"
+        )
+
+        self.assertIn("Titolo: Affidamento diretto per la sala espositiva", message)
+        self.assertIn("Settore: #UFFICIO_AMMINISTRAZIONE", message)
+        for name in apt_cron.NOTICE_FIELDS:
+            if name in apt_cron.MESSAGE_IDENTITY_FIELDS:
+                continue
+            self.assertIn(f"{apt_cron.FIELD_LABELS[name]}: {notice[name]}", message)
+        self.assertIn("https://example.test/documento.pdf", message)
+        self.assertIn("https://example.test/allegato.pdf", message)
+        for name in EXCLUDED_SOURCE_FIELDS:
+            self.assertNotIn(name, message)
+        self.assertNotIn("PRIVATE", message)
+        self.assertLessEqual(len(message), apt_cron.TELEGRAM_TEXT_LIMIT)
 
 
 class FakeTransport:
@@ -268,7 +376,7 @@ class RunOnceTest(unittest.TestCase):
         self.assertIn("Titolo aggiornato", telegram_calls[0]["payload"]["text"])
         self.assertIn("sendDocument", telegram_calls[1]["url"])
         self.assertIn("sendDocument", telegram_calls[2]["url"])
-        self.assertEqual(telegram_calls[1]["payload"]["caption"], "PDF ufficiale: Titolo aggiornato")
+        self.assertEqual(telegram_calls[1]["payload"]["caption"], "PDF ufficiale: Atto 244/2026")
 
     def test_dry_run_does_not_publish_or_write_state(self):
         response = json.loads(FIXTURE.read_text(encoding="utf-8"))
@@ -325,7 +433,7 @@ class PartialFailureTest(unittest.TestCase):
 
 
 class DocumentCaptionTest(unittest.TestCase):
-    def test_document_caption_stays_within_telegram_limit(self):
+    def test_document_caption_uses_the_act_number_and_stays_within_telegram_limit(self):
         response = json.loads(FIXTURE.read_text(encoding="utf-8"))
         transport = SequenceTransport(response, {"ok": True, "result": {"message_id": 1}})
         with tempfile.TemporaryDirectory() as directory:
@@ -344,8 +452,22 @@ class DocumentCaptionTest(unittest.TestCase):
 
         self.assertEqual(len(documents), 2)
         for call in documents:
-            self.assertLessEqual(len(call["payload"]["caption"]), 1024)
-            self.assertTrue(call["payload"]["caption"].startswith("PDF ufficiale: A"))
+            caption = call["payload"]["caption"]
+            self.assertEqual(caption, "PDF ufficiale: Atto 244/2026")
+            self.assertLessEqual(len(caption), apt_cron.TELEGRAM_CAPTION_LIMIT)
+            self.assertNotIn("AAAA", caption)
+
+    def test_document_caption_carries_no_public_or_internal_text(self):
+        notice = full_notice()
+        notice.update(title="A" * 5000)
+
+        caption = apt_cron.document_caption(notice)
+
+        self.assertEqual(caption, "PDF ufficiale: Atto 244/2026")
+        self.assertLessEqual(len(caption), apt_cron.TELEGRAM_CAPTION_LIMIT)
+        for name in EXCLUDED_SOURCE_FIELDS:
+            self.assertNotIn(name, caption)
+        self.assertNotIn("PRIVATE", caption)
 
 
 class StableIdentityTest(unittest.TestCase):
@@ -421,10 +543,23 @@ class PdfDeliveryTest(unittest.TestCase):
             apt_cron.publish_document(transport, "https://api.telegram.org/botTEST_TOKEN/sendDocument", "@x", "https://x/a.pdf", "c")
 
 
+class PublishedFieldSetTest(unittest.TestCase):
+    def test_published_fields_are_the_notice_fields_plus_derived_links(self):
+        self.assertEqual(
+            tuple(apt_cron.INDEX_FIELDS),
+            tuple(apt_cron.NOTICE_FIELDS)
+            + ("detail_url", "document_url", "attachment_urls"),
+        )
+        for name in apt_cron.NOTICE_FIELDS:
+            self.assertIn(name, apt_cron.FIELD_LABELS)
+        for name in EXCLUDED_SOURCE_FIELDS:
+            self.assertNotIn(name, apt_cron.NOTICE_FIELDS.values())
+
+
 class PublicIndexTest(unittest.TestCase):
-    def test_build_index_keeps_only_public_fields(self):
-        notice = dict(
-            first_notice(),
+    def test_build_index_publishes_every_public_field(self):
+        notice = full_notice()
+        notice.update(
             detail_url="https://example.test/dettaglio/791962",
             document_url="https://example.test/documento.pdf",
             attachment_urls=["https://example.test/allegato.pdf"],
@@ -433,28 +568,16 @@ class PublicIndexTest(unittest.TestCase):
 
         index = apt_cron.build_index([notice])
 
-        self.assertEqual(
-            index,
-            {
-                "notices": [
-                    {
-                        "id": 791962,
-                        "title": "Affidamento diretto per la sala espositiva",
-                        "category": "Delibera del Direttore Generale",
-                        "sector": "UFFICIO AMMINISTRAZIONE",
-                        "published": "2026-11-25",
-                        "expires": "2026-12-10",
-                        "year": 2026,
-                        "number": 244,
-                        "status": "PUBBLICATO",
-                        "detail_url": "https://example.test/dettaglio/791962",
-                        "document_url": "https://example.test/documento.pdf",
-                        "attachment_urls": ["https://example.test/allegato.pdf"],
-                    }
-                ]
-            },
-        )
+        row = index["notices"][0]
+        self.assertEqual(set(row), set(apt_cron.INDEX_FIELDS))
+        self.assertEqual(row["title"], "Affidamento diretto per la sala espositiva")
+        self.assertEqual(row["sector"], "UFFICIO AMMINISTRAZIONE")
+        self.assertEqual(row["cntNumeroGara"], "valore cntNumeroGara")
+        self.assertEqual(row["detail_url"], "https://example.test/dettaglio/791962")
+        self.assertEqual(row["attachment_urls"], ["https://example.test/allegato.pdf"])
         self.assertNotIn("NOT PUBLIC", json.dumps(index))
+        for name in EXCLUDED_SOURCE_FIELDS:
+            self.assertNotIn(name, json.dumps(index))
 
     def test_write_index_creates_json_markdown_and_html(self):
         index = apt_cron.build_index(
@@ -475,8 +598,104 @@ class PublicIndexTest(unittest.TestCase):
 
         self.assertEqual(set(files), {"index.json", "index.md", "index.html"})
         self.assertIn("Affidamento diretto per la sala espositiva", files["index.md"])
+        self.assertIn("Atto: 244/2026", files["index.md"])
+        self.assertIn("Categoria: Delibera del Direttore Generale", files["index.md"])
+        self.assertIn("Settore: UFFICIO AMMINISTRAZIONE", files["index.md"])
+        self.assertIn("Stato: PUBBLICATO", files["index.md"])
         self.assertIn("https://example.test/dettaglio/791962", files["index.html"])
+        self.assertIn("Affidamento diretto per la sala espositiva", files["index.html"])
+        self.assertIn("Settore: UFFICIO AMMINISTRAZIONE", files["index.html"])
         self.assertIn("https://example.test/documento.pdf", files["index.json"])
+
+    def test_write_index_renders_every_non_empty_public_field(self):
+        notice = full_notice()
+        notice.update(
+            detail_url="https://example.test/dettaglio/791962",
+            document_url=None,
+            attachment_urls=[],
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+
+            apt_cron.write_index(target, apt_cron.build_index([notice]))
+            markdown = (target / "index.md").read_text(encoding="utf-8")
+            page = (target / "index.html").read_text(encoding="utf-8")
+
+        self.assertIn("Numero gara: valore cntNumeroGara", markdown)
+        self.assertIn("Autorita mittente: valore cntAutoritaMittente", page)
+        for name in EXCLUDED_SOURCE_FIELDS:
+            self.assertNotIn(name, markdown)
+            self.assertNotIn(name, page)
+        self.assertNotIn("PRIVATE", markdown)
+        self.assertNotIn("PRIVATE", page)
+
+
+class RefreshIndexTest(unittest.TestCase):
+    def test_writes_public_index_without_state_or_telegram(self):
+        response = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        transport = SequenceTransport(response, {"ok": True, "result": {"message_id": 1}})
+        with tempfile.TemporaryDirectory() as directory:
+            config = run_config(Path(directory) / "state.json")
+
+            stats = apt_cron.refresh_index(transport, config)
+
+            index_dir = Path(config["index_dir"])
+            files = sorted(path.name for path in index_dir.iterdir())
+            index = json.loads((index_dir / "index.json").read_text(encoding="utf-8"))
+            state_exists = Path(config["state_path"]).exists()
+
+        self.assertEqual(stats, {"notices": 2})
+        self.assertEqual(files, ["index.html", "index.json", "index.md"])
+        self.assertFalse(state_exists)
+        self.assertFalse([call for call in transport.calls if "api.telegram.org" in call["url"]])
+        first = index["notices"][0]
+        self.assertEqual(
+            first["detail_url"],
+            "https://example.test/albo-pretorio/dettaglio/791962",
+        )
+        self.assertEqual(
+            first["document_url"],
+            "https://example.test/katti/public/pap/edoc/download/unico/6500/791962",
+        )
+        self.assertEqual(
+            first["attachment_urls"],
+            [
+                "https://example.test/katti/public/pap/edoc/download/single/6500/791962/abc/notice.pdf"
+            ],
+        )
+        self.assertEqual(set(first), set(apt_cron.INDEX_FIELDS))
+        self.assertEqual(first["title"], "Affidamento diretto per la sala espositiva")
+        self.assertEqual(first["sector"], "UFFICIO AMMINISTRAZIONE")
+        self.assertNotIn("NOT IN OUTPUT", json.dumps(index))
+
+    def test_cli_refresh_index_needs_no_telegram_credentials(self):
+        response = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        transport = SequenceTransport(response, {"ok": True, "result": {"message_id": 1}})
+        with tempfile.TemporaryDirectory() as directory:
+            config = run_config(Path(directory) / "state.json")
+            argv = [
+                "--refresh-index",
+                "--state-path",
+                config["state_path"],
+                "--index-dir",
+                config["index_dir"],
+                "--source-url",
+                config["source_url"],
+                "--attachments-base",
+                config["attachments_base"],
+            ]
+            with mock.patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "", "TELEGRAM_CHAT_ID": ""}), mock.patch.object(
+                apt_cron, "UrllibTransport", lambda: transport
+            ), mock.patch("sys.stdout", new_callable=io.StringIO):
+                code = apt_cron.main(argv)
+
+            index_exists = (Path(config["index_dir"]) / "index.json").exists()
+            state_exists = Path(config["state_path"]).exists()
+
+        self.assertEqual(code, 0)
+        self.assertTrue(index_exists)
+        self.assertFalse(state_exists)
+        self.assertFalse([call for call in transport.calls if "api.telegram.org" in call["url"]])
 
 
 class DynamicAttachmentsTransport(SequenceTransport):
@@ -569,16 +788,20 @@ class ProductionConfigTest(unittest.TestCase):
         self.assertIn("[REDACTED]", redacted)
 
     def test_message_stays_within_telegram_text_limit(self):
-        notice = dict(first_notice(), title="A" * 5000)
+        notice = full_notice()
+        for name in apt_cron.NOTICE_FIELDS:
+            if name not in ("published", "expires"):
+                notice[name] = "x" * 500
+        notice.update(number=244, year=2026)
+        notice["detail_url"] = "https://example.test/albo-pretorio/dettaglio/" + "a" * 5000
 
         message = apt_cron.format_message(
             notice,
             "https://example.test/albo-pretorio/dettaglio",
         )
 
-        self.assertLessEqual(len(message), 4096)
-        self.assertIn("Titolo: A", message)
-        self.assertTrue(message.endswith("/791962"))
+        self.assertLessEqual(len(message), apt_cron.TELEGRAM_TEXT_LIMIT)
+        self.assertIn("Titolo:", message)
 
 
 if __name__ == "__main__":

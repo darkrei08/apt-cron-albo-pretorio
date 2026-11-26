@@ -22,6 +22,82 @@ NOTICE_FIELDS = {
     "year": "cntAnnoNumeroPap",
     "number": "cntNumeroPap",
     "status": "status",
+    "otypeId": "otypeId",
+    "rootId": "rootId",
+    "rootOtypeid": "rootOtypeid",
+    "cntAutoritaMittente": "cntAutoritaMittente",
+    "cntAnnoNumeroRpap": "cntAnnoNumeroRpap",
+    "cntDataAnnullamento": "cntDataAnnullamento",
+    "cntDataAnnullamentoTime": "cntDataAnnullamentoTime",
+    "cntDataDocumentoOrigine": "cntDataDocumentoOrigine",
+    "cntDataNumeroPap": "cntDataNumeroPap",
+    "cntDataNumeroPapTime": "cntDataNumeroPapTime",
+    "cntDataNumeroRpap": "cntDataNumeroRpap",
+    "cntDataNumeroRpapTime": "cntDataNumeroRpapTime",
+    "cntDataRigetto": "cntDataRigetto",
+    "cntDataRigettoTime": "cntDataRigettoTime",
+    "cntDate": "cntDate",
+    "cntDocumentoOrigine": "cntDocumentoOrigine",
+    "cntDurataPubblicazione": "cntDurataPubblicazione",
+    "cntExternalId": "cntExternalId",
+    "cntExternalOggetto": "cntExternalOggetto",
+    "cntExternalSource": "cntExternalSource",
+    "cntExternalStatus": "cntExternalStatus",
+    "cntNaturaAtto": "cntNaturaAtto",
+    "cntNoteAnnullamento": "cntNoteAnnullamento",
+    "cntNoteRigetto": "cntNoteRigetto",
+    "cntNumeri": "cntNumeri",
+    "cntNumeroDocumentoOrigine": "cntNumeroDocumentoOrigine",
+    "cntNumeroGara": "cntNumeroGara",
+    "cntNumeroRpap": "cntNumeroRpap",
+    "cntParentObjectId": "cntParentObjectId",
+    "cntParentOtypeId": "cntParentOtypeId",
+    "cntProponente": "cntProponente",
+    "cntSettoreProponente": "cntSettoreProponente",
+}
+
+FIELD_LABELS = {
+    "id": "ID",
+    "title": "Titolo",
+    "category": "Categoria",
+    "sector": "Settore",
+    "published": "Pubblicato il",
+    "expires": "Scade il",
+    "year": "Anno",
+    "number": "Numero",
+    "status": "Stato",
+    "otypeId": "Tipo oggetto",
+    "rootId": "Oggetto radice",
+    "rootOtypeid": "Tipo oggetto radice",
+    "cntAutoritaMittente": "Autorita mittente",
+    "cntAnnoNumeroRpap": "Anno RPAP",
+    "cntDataAnnullamento": "Data annullamento",
+    "cntDataAnnullamentoTime": "Ora annullamento",
+    "cntDataDocumentoOrigine": "Data documento di origine",
+    "cntDataNumeroPap": "Data numero PAP",
+    "cntDataNumeroPapTime": "Ora numero PAP",
+    "cntDataNumeroRpap": "Data numero RPAP",
+    "cntDataNumeroRpapTime": "Ora numero RPAP",
+    "cntDataRigetto": "Data rigetto",
+    "cntDataRigettoTime": "Ora rigetto",
+    "cntDate": "Date",
+    "cntDocumentoOrigine": "Documento di origine",
+    "cntDurataPubblicazione": "Durata pubblicazione",
+    "cntExternalId": "ID esterno",
+    "cntExternalOggetto": "Oggetto esterno",
+    "cntExternalSource": "Fonte esterna",
+    "cntExternalStatus": "Stato esterno",
+    "cntNaturaAtto": "Natura atto",
+    "cntNoteAnnullamento": "Note annullamento",
+    "cntNoteRigetto": "Note rigetto",
+    "cntNumeri": "Numeri",
+    "cntNumeroDocumentoOrigine": "Numero documento di origine",
+    "cntNumeroGara": "Numero gara",
+    "cntNumeroRpap": "Numero RPAP",
+    "cntParentObjectId": "Oggetto padre",
+    "cntParentOtypeId": "Tipo oggetto padre",
+    "cntProponente": "Proponente",
+    "cntSettoreProponente": "Codice settore proponente",
 }
 
 
@@ -169,20 +245,19 @@ def publish_document(transport, telegram_url, chat_id, document_url, caption):
     return response["result"]
 
 
-INDEX_FIELDS = (
-    "id",
-    "title",
-    "category",
-    "sector",
-    "published",
-    "expires",
-    "year",
-    "number",
-    "status",
-    "detail_url",
-    "document_url",
-    "attachment_urls",
-)
+INDEX_FIELDS = tuple(NOTICE_FIELDS) + ("detail_url", "document_url", "attachment_urls")
+
+# Fields rendered as the identity block of an index entry instead of a label: value line.
+INDEX_IDENTITY_FIELDS = ("published", "title", "number", "year")
+
+
+def _field_rows(row, skip):
+    for name in NOTICE_FIELDS:
+        if name in skip:
+            continue
+        value = row.get(name)
+        if value not in (None, ""):
+            yield FIELD_LABELS[name], value
 
 
 def build_index(notices):
@@ -198,9 +273,10 @@ def write_index(directory, index):
     )
     markdown = ["# APT Basilicata public notices index", ""]
     for row in rows:
-        markdown.append(f"- {row['published']} - {row['title']}")
-        markdown.append(f"  - Atto: {row['number']}/{row['year']} - {row['status']}")
-        markdown.append(f"  - Categoria: {row['category']} - Settore: {row['sector']}")
+        markdown.append(f"- {row['published'] or ''} - {row['title'] or ''}")
+        markdown.append(f"  - Atto: {row['number'] or ''}/{row['year'] or ''}")
+        for label, value in _field_rows(row, INDEX_IDENTITY_FIELDS):
+            markdown.append(f"  - {label}: {value}")
         markdown.append(f"  - [Atto ufficiale]({row['detail_url']})")
         if row["document_url"]:
             markdown.append(f"  - [PDF ufficiale]({row['document_url']})")
@@ -216,18 +292,14 @@ def write_index(directory, index):
         "<ul>",
     ]
     for row in rows:
-        escaped_title = html.escape(str(row["title"] or ""))
         html_lines.append(
-            f"<li>{html.escape(str(row['published'] or ''))} - {escaped_title}"
+            f"<li>{html.escape(str(row['published'] or ''))} - {html.escape(str(row['title'] or ''))}"
         )
         html_lines.append(
-            f"<ul><li>Atto: {html.escape(str(row['number'] or ''))}/{html.escape(str(row['year'] or ''))} - "
-            f"{html.escape(str(row['status'] or ''))}</li>"
+            f"<ul><li>Atto: {html.escape(str(row['number'] or ''))}/{html.escape(str(row['year'] or ''))}</li>"
         )
-        html_lines.append(
-            f"<li>Categoria: {html.escape(str(row['category'] or ''))} - "
-            f"Settore: {html.escape(str(row['sector'] or ''))}</li>"
-        )
+        for label, value in _field_rows(row, INDEX_IDENTITY_FIELDS):
+            html_lines.append(f"<li>{html.escape(label)}: {html.escape(str(value))}</li>")
         html_lines.append(
             f'<li><a href="{html.escape(str(row["detail_url"] or ""), quote=True)}">Atto ufficiale</a></li>'
         )
@@ -263,7 +335,7 @@ def enrich_notices(transport, notices, state, attachments_base, detail_base):
     return enriched, attachments
 
 
-def run_once(transport, config):
+def fetch_enriched_notices(transport, config, state):
     notices = fetch_notices(
         transport,
         config["source_url"],
@@ -271,14 +343,24 @@ def run_once(transport, config):
         config["nature_id"],
         config["size"],
     )
-    state = migrate_state(load_state(config["state_path"]))
-    notices, attachments = enrich_notices(
+    return enrich_notices(
         transport,
         notices,
         state,
         config["attachments_base"],
         config["detail_base"],
     )
+
+
+def refresh_index(transport, config):
+    notices, _ = fetch_enriched_notices(transport, config, None)
+    write_index(config["index_dir"], build_index(notices))
+    return {"notices": len(notices)}
+
+
+def run_once(transport, config):
+    state = migrate_state(load_state(config["state_path"]))
+    notices, attachments = fetch_enriched_notices(transport, config, state)
     changes, next_state = select_changes(notices, state)
     next_state["attachments"] = attachments
     sent_documents = dict(state["sent_documents"]) if state else {}
@@ -303,7 +385,7 @@ def run_once(transport, config):
                     config["document_base"],
                     config["chat_id"],
                     url,
-                    document_caption(notice.get("title")),
+                    document_caption(notice),
                 )
                 sent_documents[url] = key
                 committed_state["sent_documents"] = dict(sent_documents)
@@ -326,11 +408,29 @@ TELEGRAM_TEXT_LIMIT = 4096
 TELEGRAM_CAPTION_LIMIT = 1024
 
 
-def document_caption(title):
-    caption = f"PDF ufficiale: {title or ''}"
+def document_caption(notice):
+    caption = f"PDF ufficiale: Atto {notice.get('number') or ''}/{notice.get('year') or ''}"
     if len(caption) > TELEGRAM_CAPTION_LIMIT:
         caption = caption[: TELEGRAM_CAPTION_LIMIT - 3] + "..."
     return caption
+
+
+# Fields rendered as the identity block of the message; every other public field follows as a line.
+MESSAGE_IDENTITY_FIELDS = ("id", "published", "title", "category", "sector", "number", "year", "status")
+
+
+def _bounded(lines, limit):
+    message = "\n".join(lines)
+    while len(message) > limit:
+        widest = max(range(len(lines)), key=lambda index: len(lines[index]))
+        # shortcut: a label longer than 13 characters is cut when the pressure is extreme, upgrade
+        # to a per-line budget only if labels start carrying the meaning of the value.
+        if len(lines[widest]) <= 16:
+            return message[: limit - 3] + "..."
+        keep = max(16, len(lines[widest]) - (len(message) - limit))
+        lines[widest] = lines[widest][: keep - 3] + "..."
+        message = "\n".join(lines)
+    return message
 
 
 def format_message(notice, detail_base, updated=False):
@@ -345,20 +445,13 @@ def format_message(notice, detail_base, updated=False):
         f"Stato: {notice.get('status') or ''}",
         f"Link: {notice.get('detail_url') or detail_base.rstrip('/') + '/' + str(notice.get('id') or '')}",
     ]
+    for label, value in _field_rows(notice, MESSAGE_IDENTITY_FIELDS):
+        lines.append(f"{label}: {value}")
     if notice.get("document_url"):
         lines.append(f"PDF: {notice['document_url']}")
-
-    message = "\n".join(lines)
-    if len(message) > TELEGRAM_TEXT_LIMIT:
-        title_index = 2
-        overhead = len(message) - len(lines[title_index]) + 3
-        available = TELEGRAM_TEXT_LIMIT - overhead
-        if available > 0:
-            lines[title_index] = lines[title_index][:available] + "..."
-            message = "\n".join(lines)
-        else:
-            message = message[: TELEGRAM_TEXT_LIMIT - 3] + "..."
-    return message
+    for url in notice.get("attachment_urls") or []:
+        lines.append(f"Allegato PDF: {url}")
+    return _bounded(lines, TELEGRAM_TEXT_LIMIT)
 
 
 class UrllibTransport:
@@ -397,6 +490,11 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="Publish new APT Basilicata notices to Telegram")
     parser.add_argument("--dry-run", action="store_true", help="read the source without publishing or saving state")
     parser.add_argument(
+        "--refresh-index",
+        action="store_true",
+        help="rebuild the public index without state or Telegram credentials",
+    )
+    parser.add_argument(
         "--source-url",
         default=os.environ.get("APT_SOURCE_URL", "https://siopi.publisys.it/kapi-aptbasilicata/api/pap/filter"),
     )
@@ -416,8 +514,10 @@ def main(argv=None):
 
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
     chat_id = os.environ.get("TELEGRAM_CHAT_ID", "")
-    if not args.dry_run and (not token or not chat_id):
-        parser.error("TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are required unless --dry-run is used")
+    if not (args.dry_run or args.refresh_index) and (not token or not chat_id):
+        parser.error(
+            "TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are required unless --dry-run or --refresh-index is used"
+        )
 
     try:
         page_size = parse_positive_int(os.environ.get("APT_PAGE_SIZE", "20"), "APT_PAGE_SIZE")
@@ -442,7 +542,10 @@ def main(argv=None):
         "dry_run": args.dry_run,
     }
     try:
-        stats = run_once(UrllibTransport(), config)
+        if args.refresh_index:
+            stats = refresh_index(UrllibTransport(), config)
+        else:
+            stats = run_once(UrllibTransport(), config)
     except Exception as error:
         print(f"error: {redact_credentials(error, token)}", file=sys.stderr)
         return 1

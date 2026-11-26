@@ -12,6 +12,10 @@ _Avoid_: API, endpoint, feed
 A public act listed in the Source register and identified by its official number, year, category, sector, publication dates, status and official detail link.
 _Avoid_: atto, act, record, item
 
+**Published field set**:
+Every public field the Source register exposes for a Public notice, minus the internal account, login, audit and responsible-person fields, plus the derived official links. The same set reaches every Publication surface.
+_Avoid_: schema, payload, dump
+
 **Notice identity**:
 The stable key that keeps one Public notice distinct across runs, using its official id or an official link when the id is absent.
 _Avoid_: row, key, document id
