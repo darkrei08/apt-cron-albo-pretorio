@@ -15,6 +15,9 @@ The Wayfinder map is [APT public notices crawler and notification plan](https://
 7. Saves state incrementally after each successful publish.
 8. A scheduled GitHub Actions workflow refreshes the index hourly and commits only changed `public/index.*` files.
 
+Messages are always published oldest to newest, so within one run the newest act is the last message in
+the chat. The index keeps the source order, newest first.
+
 The first run seeds state from the current source without publishing. This avoids an initial channel flood.
 
 Fingerprints cover every published field, so a deploy that changes the field set changes every fingerprint. Move or delete `APT_STATE_PATH` once before the first run after such a change; otherwise that run publishes every current notice as an update.
@@ -74,6 +77,16 @@ is the path the hourly workflow uses:
 python3 apt_cron.py --refresh-index
 ```
 
+Publish the whole published archive, not just the current window, oldest act first and with no index
+rebuild. This is a one-off recovery path: it reads every page the source holds, sends a message for
+every act not yet in state, and publishes nothing on a rerun of unchanged acts. Archived acts that
+no longer expose PDFs still produce their metadata message; only the document messages are omitted.
+
+```sh
+python3 apt_cron.py --backfill --dry-run   # read the archive and report without sending
+python3 apt_cron.py --backfill            # publish it, credentials required
+```
+
 Publish new or changed notices with a local credentials file inside the repository. The script
 loads it itself, so no shell sourcing is needed and no credential reaches shell history:
 
@@ -115,7 +128,7 @@ repository `GITHUB_TOKEN`.
 
 **What is downloaded:** the JSON notice list, the JSON attachment-link list, and the PDF bytes of each published official document. PDF bytes are fetched into memory, sent to Telegram in a multipart `sendDocument` body and never written to disk. Telegram does not fetch the source URL itself (that failed live with `400 Bad Request: failed to get HTTP URL content`). A PDF above 50 MB is rejected before the upload and fails the run.
 
-**Where it is downloaded from:** `https://siopi.publisys.it/kapi-aptbasilicata/api/pap/filter?page=0&size=<APT_PAGE_SIZE>` by read-only POST, and `https://siopi.publisys.it/kapi-aptbasilicata/api/pap/files/{id}` by GET for notices not already cached in state. Requests use `User-Agent: apt-cron/1.0` and a 20-second timeout.
+**Where it is downloaded from:** `https://siopi.publisys.it/kapi-aptbasilicata/api/pap/filter?page=0&size=<APT_PAGE_SIZE>` by read-only POST, and `https://siopi.publisys.it/kapi-aptbasilicata/api/pap/files/{id}` by GET for notices not already cached in state. Requests use `User-Agent: apt-cron/1.0` and a 20-second timeout. With `--backfill` the same POST is sent without the two publication-window criteria and once per page, up to the page count the source reports.
 
 **When:** once per invocation. The intended schedule is hourly, but scheduling is the operator's choice and is not performed by the script.
 
@@ -127,7 +140,7 @@ repository `GITHUB_TOKEN`.
 `APT_ENV_FILE` file, or the protected environment file, choosing the state and index paths, scheduling
 the job, protecting logs, checking that the Telegram bot has the right permissions, monitoring failures, and answering data-rights requests. Withdrawal is not automated: a withdrawn notice stays in the channel as the permanent record and leaves the index on the next hourly refresh (ADR 0004). Publishing a key that the allowlist excludes (an internal account, login, audit or responsible-person field) would require a new Wayfinder decision; every other public field of an act is already published. After a change to the field set, reseed state once as described above.
 
-**Not verified:** the private-channel validation is partial. A live `sendMessage` to the test chat and `getChat` succeeded; a live `sendDocument` that passed the official PDF URL failed with `400 Bad Request: failed to get HTTP URL content`, which is why documents are now uploaded as bytes. The multipart upload itself has been exercised only against a local server and the unit suite, not against Telegram. No production cron schedule was installed. The `--refresh-index` path was exercised against the live source (exit code `0`, 14 notices, 44 published keys per notice, index files written, no state file); the hourly workflow itself has never run on GitHub Actions. Long-term source availability and client rendering should be checked in the destination channel before public use.
+**Not verified:** no production cron schedule was installed. A live `sendMessage` and multipart `sendDocument` both succeeded in the private validation channel: one notice produced one text message and two PDF documents. A `sendDocument` that passed the official PDF URL failed earlier with `400 Bad Request: failed to get HTTP URL content`, which is why documents are now uploaded as bytes. The `--refresh-index` path was exercised against the live source; long-term source availability, the hourly GitHub workflow and rendering in other Telegram clients remain unverified.
 
 ## Production checks
 
@@ -136,6 +149,8 @@ the job, protecting logs, checking that the Telegram bot has the right permissio
 - Telegram text is bounded to 4096 characters by shortening the widest lines when a notice carries long values, so no published field can exceed the limit and no label is lost to a hard cut.
 - Document captions state the act number and year and are bounded to 1024 characters.
 - `--refresh-index` needs no Telegram credentials, writes no state and sends nothing.
+- `--backfill` reads the whole archive page by page, publishes oldest to newest, writes no index and
+  keeps state per successful publish, so an interrupted backfill resumes on the next run.
 - GitHub Actions runs compile and the full test suite on pushes to `main` and pull requests, and refreshes the committed index hourly.
 
 ## Tests
@@ -146,4 +161,4 @@ Run the full suite:
 python3 -m unittest discover -s tests -v
 ```
 
-The tests use local fixtures and fake transports; they do not contact APT Basilicata or Telegram. They cover the published outputs (Telegram text, captions, index files), the multipart document upload and its 50 MB bound, the exact included and excluded field sets, the unchanged dedupe behavior, and the credential-free refresh path.
+The tests use local fixtures and fake transports; they do not contact APT Basilicata or Telegram. They cover the published outputs (Telegram text, captions, index files), the multipart document upload and its 50 MB bound, the exact included and excluded field sets, the unchanged dedupe behavior, the credential-free refresh path, the archive criteria and pagination, the oldest-to-newest publication order and the `--backfill` path.

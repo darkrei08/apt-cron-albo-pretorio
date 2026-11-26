@@ -1,6 +1,6 @@
 # 0001 — Hourly acquisition and public metadata contract
 
-- Status: accepted, implemented
+- Status: accepted, implemented; archive pagination and publication order amended by [ADR 0008](0008-archive-backfill-and-publication-order.md)
 - Decision record: GitHub issue #5 (open)
 
 ## Context
@@ -57,7 +57,8 @@ alternative for the notice list.
 ## Consequences
 
 - A run sees at most one page of notices (`APT_PAGE_SIZE`, default 20). Older or additional pages
-  are not backfilled; widening coverage would require a decision to paginate.
+  are read only by the archive backfill (`--backfill`), which paginates without the publication
+  window (ADR 0008).
 - State is the only memory. Deleting `APT_STATE_PATH` re-seeds it and suppresses publishing for that
   run.
 - Fingerprints cover every projected field, so adding a field to `NOTICE_FIELDS` changes every stored
@@ -80,6 +81,6 @@ alternative for the notice list.
 
 ## Not verified
 
-No live Telegram message or document has been sent and no production cron schedule was installed.
-Tests use simulated HTTP on both sides. Source availability, Telegram document size acceptance and
-client rendering remain unverified.
+A live `sendMessage` and multipart `sendDocument` were exercised in the private validation channel;
+no production cron schedule was installed. Automated tests use simulated HTTP on both sides.
+Rendering across Telegram clients and long-term source availability remain unverified.

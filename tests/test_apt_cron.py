@@ -102,6 +102,20 @@ def full_notice():
     return apt_cron.parse_source_response({"results": [full_source_item()]})[0]
 
 
+def archive_item(notice_id, published, number):
+    return {
+        "id": notice_id,
+        "cntTitle": f"Atto archivio {number}",
+        "cntAnnoNumeroPap": 2026,
+        "cntNumeroPap": number,
+        "cntDataInizioPubblicazione": published,
+        "cntDataFinePubblicazione": "2026-12-31",
+        "cntNaturaAttoLabel": "Determina",
+        "cntSettoreProponenteLabel": "UFFICIO",
+        "status": "PUBBLICATO",
+    }
+
+
 class ParseSourceResponseTest(unittest.TestCase):
     def test_projects_every_documented_public_source_field(self):
         self.assertEqual(sorted(apt_cron.NOTICE_FIELDS.values()), sorted(INCLUDED_SOURCE_FIELDS))
@@ -243,6 +257,90 @@ class FetchNoticesTest(unittest.TestCase):
 
         with self.assertRaises(RuntimeError):
             apt_cron.fetch_notices(transport, "https://example.test/filter", "2026-11-25", "1", 20)
+
+
+class PagedSourceTransport:
+    def __init__(self, pages):
+        self.pages = pages
+        self.calls = []
+
+    def request(self, method, url, payload=None):
+        self.calls.append({"method": method, "url": url, "payload": payload})
+        page = int(url.split("page=", 1)[1].split("&", 1)[0])
+        if page >= len(self.pages):
+            # The source answers 404 past the last page, so a walk never reaches this branch.
+            raise RuntimeError("HTTP Error 404: Not Found")
+        return self.pages[page]
+
+
+class ArchiveQueryTest(unittest.TestCase):
+    def test_archive_criteria_omit_the_publication_window(self):
+        transport = FakeTransport({"results": [], "totalPages": 1})
+
+        apt_cron.fetch_notices(
+            transport,
+            "https://example.test/filter",
+            "2026-11-25",
+            "200152",
+            20,
+            archive=True,
+        )
+
+        self.assertEqual(
+            transport.calls[0]["payload"],
+            {
+                "dataOption": "all",
+                "papSearchCriteriaList": [
+                    {"filterKey": "cntNaturaAtto", "operation": "eq", "value": "200152"},
+                    {"filterKey": "cntExternalStatus", "operation": "nu", "value": ""},
+                    {"filterKey": "cntNumeroPap", "operation": "nn"},
+                    {"filterKey": "cntAnnoNumeroPap", "operation": "nn"},
+                ],
+            },
+        )
+
+    def test_archive_pagination_walks_every_page_and_stops_before_a_404(self):
+        transport = PagedSourceTransport(
+            [
+                {"results": [archive_item(1, "2026-11-25", 246)], "totalPages": 3},
+                {"results": [archive_item(2, "2026-11-24", 245)], "totalPages": 3},
+                {"results": [archive_item(3, "2026-11-23", 244)], "totalPages": 3},
+            ]
+        )
+
+        notices = apt_cron.fetch_notices(
+            transport,
+            "https://example.test/filter",
+            "2026-11-25",
+            "200152",
+            20,
+            archive=True,
+        )
+
+        self.assertEqual([notice["id"] for notice in notices], [1, 2, 3])
+        self.assertEqual(
+            [call["url"] for call in transport.calls],
+            [f"https://example.test/filter?page={page}&size=20" for page in range(3)],
+        )
+
+    def test_current_window_still_reads_only_page_zero(self):
+        transport = PagedSourceTransport(
+            [{"results": [archive_item(1, "2026-11-25", 246)], "totalPages": 5}]
+        )
+
+        notices = apt_cron.fetch_notices(
+            transport,
+            "https://example.test/filter",
+            "2026-11-25",
+            "200152",
+            20,
+        )
+
+        self.assertEqual(len(notices), 1)
+        self.assertEqual(
+            [call["url"] for call in transport.calls],
+            ["https://example.test/filter?page=0&size=20"],
+        )
 
 
 class PublishMessageTest(unittest.TestCase):
@@ -416,6 +514,58 @@ class RunOnceTest(unittest.TestCase):
             self.assertTrue(apt_cron.load_state(config["state_path"]))
 
 
+class PublicationOrderTest(unittest.TestCase):
+    def test_orders_notices_oldest_first_and_the_newest_act_last(self):
+        changes = [
+            (archive_item(1, "2026-11-25", 246), False),
+            (archive_item(2, "2026-11-24", 245), False),
+            (archive_item(3, "2026-11-20", 244), False),
+        ]
+
+        ordered = apt_cron.publication_order(changes)
+
+        self.assertEqual([notice["id"] for notice, _ in ordered], [3, 2, 1])
+
+    def test_acts_published_the_same_day_keep_the_source_order_reversed(self):
+        changes = [
+            (archive_item(1, "2026-11-25", 246), False),
+            (archive_item(2, "2026-11-25", 245), False),
+        ]
+
+        ordered = apt_cron.publication_order(changes)
+
+        self.assertEqual([notice["id"] for notice, _ in ordered], [2, 1])
+
+    def test_run_once_publishes_oldest_first_so_the_newest_act_is_the_last_message(self):
+        response = {
+            "results": [
+                archive_item(800003, "2026-11-25", 246),
+                archive_item(800002, "2026-11-24", 245),
+                archive_item(800001, "2026-11-20", 244),
+            ]
+        }
+        transport = SequenceTransport(response, {"ok": True, "result": {"message_id": 1}})
+        with tempfile.TemporaryDirectory() as directory:
+            config = run_config(Path(directory) / "state.json")
+            apt_cron.run_once(transport, config)
+            for item in response["results"]:
+                item["cntTitle"] += " aggiornato"
+            transport.calls.clear()
+
+            stats = apt_cron.run_once(transport, config)
+            messages = [
+                call["payload"]["text"]
+                for call in transport.calls
+                if "sendMessage" in call["url"]
+            ]
+
+        self.assertEqual(stats["published"], 3)
+        self.assertEqual(
+            [line for message in messages for line in message.splitlines() if line.startswith("Data: ")],
+            ["Data: 20/11/2026", "Data: 24/11/2026", "Data: 25/11/2026"],
+        )
+
+
 class FailingSecondTransport(SequenceTransport):
     def __init__(self, source_response):
         super().__init__(source_response, {"ok": True, "result": {"message_id": 1}})
@@ -437,7 +587,8 @@ class PartialFailureTest(unittest.TestCase):
             config = run_config(Path(directory) / "state.json")
             apt_cron.run_once(transport, config)
             initial_state = apt_cron.load_state(config["state_path"])
-            old_fingerprint = initial_state["notices"]["791960"]
+            # Publication runs oldest first, so the newest act is the one that fails here.
+            old_fingerprint = initial_state["notices"]["791962"]
             for item in response["results"]:
                 item["cntTitle"] += " aggiornato"
             transport.calls.clear()
@@ -447,8 +598,112 @@ class PartialFailureTest(unittest.TestCase):
             state = apt_cron.load_state(config["state_path"])
 
         self.assertEqual(transport.telegram_calls, 2)
-        self.assertNotEqual(state["notices"]["791962"], initial_state["notices"]["791962"])
-        self.assertEqual(state["notices"]["791960"], old_fingerprint)
+        self.assertNotEqual(state["notices"]["791960"], initial_state["notices"]["791960"])
+        self.assertEqual(state["notices"]["791962"], old_fingerprint)
+
+
+class BackfillTest(unittest.TestCase):
+    def backfill_transport(self, response):
+        return SequenceTransport(
+            response, {"ok": True, "result": {"message_id": 1}}, {"results": []}
+        )
+
+    def test_backfill_publishes_the_archive_oldest_first_without_writing_the_index(self):
+        response = {
+            "results": [
+                archive_item(800003, "2026-11-25", 246),
+                archive_item(800002, "2026-11-20", 243),
+                archive_item(800001, "2026-09-01", 12),
+            ]
+        }
+        transport = self.backfill_transport(response)
+        with tempfile.TemporaryDirectory() as directory:
+            config = run_config(Path(directory) / "state.json")
+            config["archive"] = True
+
+            stats = apt_cron.run_once(transport, config)
+
+            source_calls = [
+                call for call in transport.calls if call["url"].startswith(config["source_url"])
+            ]
+            documents = [call for call in transport.calls if "sendDocument" in call["url"]]
+            messages = [
+                call["payload"]["text"]
+                for call in transport.calls
+                if "sendMessage" in call["url"]
+            ]
+            index_exists = Path(config["index_dir"]).exists()
+            state = apt_cron.load_state(config["state_path"])
+
+        self.assertEqual(stats, {"notices": 3, "published": 3, "dry_run": False})
+        self.assertEqual(
+            [call["url"] for call in source_calls],
+            [f"{config['source_url']}?page=0&size=20"],
+        )
+        self.assertNotIn("cntDataInizioPubblicazione", json.dumps(source_calls[0]["payload"]))
+        self.assertFalse(index_exists)
+        self.assertEqual(len(messages), 3)
+        self.assertEqual(
+            [line for message in messages for line in message.splitlines() if line.startswith("Data: ")],
+            ["Data: 01/09/2026", "Data: 20/11/2026", "Data: 25/11/2026"],
+        )
+        self.assertFalse([line for message in messages for line in message.splitlines() if line.startswith("PDF: ")])
+        self.assertEqual(documents, [])
+        self.assertEqual(set(state["notices"]), {"800001", "800002", "800003"})
+
+    def test_rerunning_backfill_does_not_republish_unchanged_notices(self):
+        response = {
+            "results": [
+                archive_item(800002, "2026-11-20", 243),
+                archive_item(800001, "2026-09-01", 12),
+            ]
+        }
+        transport = self.backfill_transport(response)
+        with tempfile.TemporaryDirectory() as directory:
+            config = run_config(Path(directory) / "state.json")
+            config["archive"] = True
+            apt_cron.run_once(transport, config)
+            transport.calls.clear()
+
+            stats = apt_cron.run_once(transport, config)
+
+        self.assertEqual(stats["published"], 0)
+        self.assertEqual([call for call in transport.calls if "api.telegram.org" in call["url"]], [])
+
+    def test_cli_backfill_reads_the_archive_and_writes_no_index(self):
+        response = {
+            "results": [
+                archive_item(800002, "2026-11-25", 246),
+                archive_item(800001, "2026-09-01", 12),
+            ]
+        }
+        transport = self.backfill_transport(response)
+        with tempfile.TemporaryDirectory() as directory:
+            config = run_config(Path(directory) / "state.json")
+            argv = [
+                "--backfill",
+                "--state-path",
+                config["state_path"],
+                "--index-dir",
+                config["index_dir"],
+                "--source-url",
+                config["source_url"],
+                "--attachments-base",
+                config["attachments_base"],
+            ]
+            with mock.patch.dict(
+                os.environ,
+                {"TELEGRAM_BOT_TOKEN": "TEST_TOKEN", "TELEGRAM_CHAT_ID": "@test_channel"},
+            ), mock.patch.object(apt_cron, "UrllibTransport", lambda: transport), mock.patch(
+                "sys.stdout", new_callable=io.StringIO
+            ) as stdout:
+                code = apt_cron.main(argv)
+
+            index_exists = Path(config["index_dir"]).exists()
+
+        self.assertEqual(code, 0)
+        self.assertFalse(index_exists)
+        self.assertEqual(json.loads(stdout.getvalue())["published"], 2)
 
 
 class DocumentCaptionTest(unittest.TestCase):

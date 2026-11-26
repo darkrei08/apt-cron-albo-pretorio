@@ -188,31 +188,48 @@ def select_changes(notices, state):
     return changes, dict(state, notices=current)
 
 
-def fetch_notices(transport, source_url, today, nature_id, size):
-    payload = {
-        "dataOption": "all",
-        "papSearchCriteriaList": [
-            {"filterKey": "cntNaturaAtto", "operation": "eq", "value": nature_id},
-            {
-                "filterKey": "cntDataFinePubblicazione",
-                "operation": "ge",
-                "value": today,
-            },
-            {
-                "filterKey": "cntDataInizioPubblicazione",
-                "operation": "le",
-                "value": today,
-            },
+def notice_query(today, nature_id, archive):
+    criteria = [{"filterKey": "cntNaturaAtto", "operation": "eq", "value": nature_id}]
+    if not archive:
+        criteria.extend(
+            [
+                {
+                    "filterKey": "cntDataFinePubblicazione",
+                    "operation": "ge",
+                    "value": today,
+                },
+                {
+                    "filterKey": "cntDataInizioPubblicazione",
+                    "operation": "le",
+                    "value": today,
+                },
+            ]
+        )
+    criteria.extend(
+        [
             {"filterKey": "cntExternalStatus", "operation": "nu", "value": ""},
             {"filterKey": "cntNumeroPap", "operation": "nn"},
             {"filterKey": "cntAnnoNumeroPap", "operation": "nn"},
-        ],
-    }
-    url = f"{source_url}?page=0&size={size}"
-    response = transport.request("POST", url, payload)
-    if response.get("error"):
-        raise RuntimeError(response.get("errorMessage") or "source error")
-    return parse_source_response(response)
+        ]
+    )
+    return {"dataOption": "all", "papSearchCriteriaList": criteria}
+
+
+def fetch_notices(transport, source_url, today, nature_id, size, archive=False):
+    """Read the source; archive mode walks every page of the whole published history."""
+    notices = []
+    page = 0
+    total_pages = 1
+    while page < total_pages:
+        url = f"{source_url}?page={page}&size={size}"
+        response = transport.request("POST", url, notice_query(today, nature_id, archive))
+        if response.get("error"):
+            raise RuntimeError(response.get("errorMessage") or "source error")
+        notices.extend(parse_source_response(response))
+        # The source answers 404 past the last page, so totalPages is the only stop condition.
+        total_pages = int(response.get("totalPages") or 1) if archive else 1
+        page += 1
+    return notices
 
 
 def fetch_attachments(transport, attachments_base, notice_id):
@@ -358,6 +375,7 @@ def fetch_enriched_notices(transport, config, state):
         config["today"],
         config["nature_id"],
         config["size"],
+        archive=bool(config.get("archive")),
     )
     return enrich_notices(
         transport,
@@ -374,8 +392,18 @@ def refresh_index(transport, config):
     return {"notices": len(notices)}
 
 
+def publication_order(changes):
+    """Oldest first, so the newest act is always the last message in the chat."""
+    # The source answers newest first, so reversing puts the same-day acts oldest first too.
+    return sorted(reversed(changes), key=lambda change: change[0].get("published") or "")
+
+
 def run_once(transport, config):
     state = migrate_state(load_state(config["state_path"]))
+    archive = bool(config.get("archive"))
+    if archive and state is None:
+        # A backfill exists to publish the archive, so a missing state seeds nothing.
+        state = empty_state()
     notices, attachments = fetch_enriched_notices(transport, config, state)
     changes, next_state = select_changes(notices, state)
     next_state["attachments"] = attachments
@@ -384,7 +412,7 @@ def run_once(transport, config):
     dry_run = bool(config.get("dry_run"))
     committed_state = next_state if state is None else dict(state, notices=dict(state["notices"]))
     published = 0
-    for notice, updated in changes:
+    for notice, updated in publication_order(changes):
         text = format_message(notice, config["detail_base"], updated=updated)
         if not dry_run:
             publish_message(transport, config["telegram_url"], config["chat_id"], text)
@@ -408,7 +436,8 @@ def run_once(transport, config):
                 save_state(config["state_path"], committed_state)
         published += 1
     if not dry_run:
-        write_index(config["index_dir"], build_index(notices))
+        if not archive:
+            write_index(config["index_dir"], build_index(notices))
         save_state(config["state_path"], next_state)
     return {"notices": len(notices), "published": published, "dry_run": dry_run}
 
@@ -566,6 +595,11 @@ def main(argv=None):
         help="rebuild the public index without state or Telegram credentials",
     )
     parser.add_argument(
+        "--backfill",
+        action="store_true",
+        help="publish the whole published archive oldest first, without rebuilding the index",
+    )
+    parser.add_argument(
         "--source-url",
         default=os.environ.get("APT_SOURCE_URL", "https://siopi.publisys.it/kapi-aptbasilicata/api/pap/filter"),
     )
@@ -611,6 +645,7 @@ def main(argv=None):
         "document_base": f"https://api.telegram.org/bot{token}/sendDocument",
         "chat_id": chat_id,
         "dry_run": args.dry_run,
+        "archive": args.backfill,
     }
     try:
         if args.refresh_index:
