@@ -268,6 +268,7 @@ class RunOnceTest(unittest.TestCase):
         self.assertIn("Titolo aggiornato", telegram_calls[0]["payload"]["text"])
         self.assertIn("sendDocument", telegram_calls[1]["url"])
         self.assertIn("sendDocument", telegram_calls[2]["url"])
+        self.assertEqual(telegram_calls[1]["payload"]["caption"], "PDF ufficiale: Titolo aggiornato")
 
     def test_dry_run_does_not_publish_or_write_state(self):
         response = json.loads(FIXTURE.read_text(encoding="utf-8"))
@@ -321,6 +322,30 @@ class PartialFailureTest(unittest.TestCase):
         self.assertEqual(transport.telegram_calls, 2)
         self.assertNotEqual(state["notices"]["791962"], initial_state["notices"]["791962"])
         self.assertEqual(state["notices"]["791960"], old_fingerprint)
+
+
+class DocumentCaptionTest(unittest.TestCase):
+    def test_document_caption_stays_within_telegram_limit(self):
+        response = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        transport = SequenceTransport(response, {"ok": True, "result": {"message_id": 1}})
+        with tempfile.TemporaryDirectory() as directory:
+            config = run_config(Path(directory) / "state.json")
+            apt_cron.run_once(transport, config)
+            response["results"][0]["cntTitle"] = "A" * 5000
+            transport.calls.clear()
+
+            apt_cron.run_once(transport, config)
+
+            documents = [
+                call
+                for call in transport.calls
+                if "sendDocument" in call["url"]
+            ]
+
+        self.assertEqual(len(documents), 2)
+        for call in documents:
+            self.assertLessEqual(len(call["payload"]["caption"]), 1024)
+            self.assertTrue(call["payload"]["caption"].startswith("PDF ufficiale: A"))
 
 
 class StableIdentityTest(unittest.TestCase):

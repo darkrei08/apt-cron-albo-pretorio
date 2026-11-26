@@ -303,7 +303,7 @@ def run_once(transport, config):
                     config["document_base"],
                     config["chat_id"],
                     url,
-                    f"PDF ufficiale: {notice.get('title') or ''}",
+                    document_caption(notice.get("title")),
                 )
                 sent_documents[url] = key
                 committed_state["sent_documents"] = dict(sent_documents)
@@ -323,6 +323,14 @@ def publish_message(transport, telegram_url, chat_id, text):
 
 
 TELEGRAM_TEXT_LIMIT = 4096
+TELEGRAM_CAPTION_LIMIT = 1024
+
+
+def document_caption(title):
+    caption = f"PDF ufficiale: {title or ''}"
+    if len(caption) > TELEGRAM_CAPTION_LIMIT:
+        caption = caption[: TELEGRAM_CAPTION_LIMIT - 3] + "..."
+    return caption
 
 
 def format_message(notice, detail_base, updated=False):
