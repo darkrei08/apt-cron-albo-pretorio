@@ -662,7 +662,11 @@ class RunOnceTest(unittest.TestCase):
             stats = apt_cron.run_once(transport, config)
 
             self.assertEqual(stats, {"notices": 2, "published": 1, "dry_run": True})
-            self.assertEqual(len(transport.calls), 1)
+            # The changed notice also re-reads its PDF links; nothing reaches Telegram.
+            self.assertEqual(
+                [call["url"] for call in transport.calls if "api.telegram.org" in call["url"]],
+                [],
+            )
             self.assertTrue(apt_cron.load_state(config["state_path"]))
 
 
@@ -1534,6 +1538,89 @@ class NewNoticeDeliveryTest(unittest.TestCase):
 
             sent = [call for call in transport.calls if "api.telegram.org" in call["url"]]
 
+        self.assertEqual(len(sent), 1)
+        self.assertIn("sendMessage", sent[0]["url"])
+
+
+class CountingAttachmentsTransport(SequenceTransport):
+    def __init__(self, source_response, telegram_response):
+        super().__init__(source_response, telegram_response)
+        self.attachment_requests = []
+
+    def request(self, method, url, payload=None):
+        if "/api/pap/files/" in url:
+            self.attachment_requests.append(url.rsplit("/", 1)[1])
+        return super().request(method, url, payload)
+
+
+NEW_PDF = {
+    "tipoFile": "ALLEGATO",
+    "mimeType": "application/pdf",
+    "title": "integrazione.pdf",
+    "downloadUrl": "https://example.test/katti/public/pap/edoc/download/single/6500/791962/ghi/integrazione.pdf",
+    "position": 2,
+}
+
+
+class AttachmentCacheRefreshTest(unittest.TestCase):
+    def test_changed_notice_refreshes_its_cached_pdf_links(self):
+        response = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        transport = CountingAttachmentsTransport(
+            response, {"ok": True, "result": {"message_id": 1}}
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            config = run_config(Path(directory) / "state.json")
+            apt_cron.run_once(transport, config)
+            transport.attachments_response["results"][0]["files"].append(NEW_PDF)
+            response["results"][0]["cntTitle"] = "Titolo aggiornato"
+            transport.calls.clear()
+            transport.attachment_requests.clear()
+
+            apt_cron.run_once(transport, config)
+            state = apt_cron.load_state(config["state_path"])
+            sent = [call for call in transport.calls if "api.telegram.org" in call["url"]]
+
+        self.assertEqual(transport.attachment_requests, ["791962"])
+        self.assertIn(NEW_PDF["downloadUrl"], state["attachments"]["791962"]["attachment_urls"])
+        self.assertIn(NEW_PDF["downloadUrl"], state["sent_documents"])
+        self.assertEqual(len(sent), 4)
+
+    def test_unchanged_notice_reuses_the_cached_pdf_links(self):
+        response = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        transport = CountingAttachmentsTransport(
+            response, {"ok": True, "result": {"message_id": 1}}
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            config = run_config(Path(directory) / "state.json")
+            apt_cron.run_once(transport, config)
+            transport.calls.clear()
+            transport.attachment_requests.clear()
+
+            stats = apt_cron.run_once(transport, config)
+            sent = [call for call in transport.calls if "api.telegram.org" in call["url"]]
+
+        self.assertEqual(stats["published"], 0)
+        self.assertEqual(transport.attachment_requests, [])
+        self.assertEqual(sent, [])
+
+    def test_a_refreshed_notice_with_the_same_links_uploads_no_duplicate(self):
+        response = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        transport = CountingAttachmentsTransport(
+            response, {"ok": True, "result": {"message_id": 1}}
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            config = run_config(Path(directory) / "state.json")
+            apt_cron.run_once(transport, config)
+            response["results"][0]["cntTitle"] = "Titolo aggiornato"
+            apt_cron.run_once(transport, config)
+            response["results"][0]["cntTitle"] = "Titolo aggiornato di nuovo"
+            transport.calls.clear()
+            transport.attachment_requests.clear()
+
+            apt_cron.run_once(transport, config)
+            sent = [call for call in transport.calls if "api.telegram.org" in call["url"]]
+
+        self.assertEqual(transport.attachment_requests, ["791962"])
         self.assertEqual(len(sent), 1)
         self.assertIn("sendMessage", sent[0]["url"])
 

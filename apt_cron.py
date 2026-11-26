@@ -430,7 +430,13 @@ def enrich_notices(transport, notices, state, attachments_base, detail_base):
         if item.get("id") not in (None, ""):
             item["detail_url"] = f"{detail_base.rstrip('/')}/{item['id']}"
         cached = attachments.get(key)
-        links = cached if cached is not None else fetch_attachments(
+        # The stored fingerprint was taken with the cached links applied, so it still
+        # matches only while the source metadata is unchanged. A changed notice may have
+        # gained or replaced an official PDF, so its links are refetched instead of reused.
+        unchanged = cached is not None and state["notices"].get(key) == fingerprint(
+            {**item, **cached}
+        )
+        links = cached if unchanged else fetch_attachments(
             transport, attachments_base, item.get("id")
         )
         item.update(links)

@@ -12,8 +12,9 @@ The repository has no withdrawal or retention mechanism. What it does have:
   on it for retention: no pruning, no expiry message, no deletion.
 - **State grows without bound.** `state["sent_documents"]` maps every delivered PDF URL to its
   notice key (`apt_cron.py:313-315`), and `state["attachments"]` caches PDF links per notice
-  (`apt_cron.py:242-259`). Neither map is pruned, and `expires` is not stored in state at all —
-  state keeps fingerprints, not notice fields.
+  (`apt_cron.py:242-259`), refreshed whenever the notice's source metadata changes so a newly added
+  official PDF can be published. Neither map is pruned, and `expires` is not stored in state at
+  all — state keeps fingerprints, not notice fields.
 - **The index is rebuilt, and its published history lives in Git.** `run_once` regenerates
   `public/index.*` from the notices the source returned on that run (`apt_cron.py:318-319`,
   `write_index` `apt_cron.py:190-240`), and `--refresh-index` does the same without state
@@ -38,7 +39,9 @@ Operator decisions are recorded below.
    channel; messages remain in the chat as the permanent record. The script has no
    `deleteMessage` call and none is added.
 2. **Retention of state.** Accepted: indefinite. Fingerprints, cached PDF links and sent document URLs
-   are kept for the life of the deployment and no pruning rule is added. Deleting the state file
+   are kept for the life of the deployment and no pruning rule is added. The cached PDF links are
+   replaced, not appended, when a notice changes, so retention covers the per-notice entry rather
+   than its first content. Deleting the state file
    (`APT_STATE_PATH`) remains only the documented re-seed path, not a retention mechanism.
 3. **Retention of published messages.** Accepted: messages stay in the channel indefinitely as the
    publishing record. Withdrawal is triggered by the source, not by age, and requires no action.
