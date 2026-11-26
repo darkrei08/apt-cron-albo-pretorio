@@ -176,14 +176,15 @@ class FormatMessageTest(unittest.TestCase):
                 [
                     "<b>Nuovo atto APT Basilicata</b>",
                     "<u>Atto 244/2026</u>",
+                    '<a href="https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/791962">Atto ufficiale</a>',
+                    '<a href="https://example.test/katti/public/pap/edoc/download/unico/6500/791962">PDF ufficiale</a>',
+                    '<a href="https://example.test/katti/public/pap/edoc/download/single/6500/791962/abc/notice.pdf">Allegato</a>',
+                    '<a href="https://example.test/katti/public/pap/edoc/download/single/6500/791962/def/non-pdf.png">Allegato</a>',
                     "<b>Titolo:</b> Affidamento diretto per la sala espositiva",
                     "<b>Pubblicato il:</b> 25/11/2026",
                     "<b>Scade il:</b> 10/12/2026",
                     "#Delibera_del_Direttore_Generale #UFFICIO_AMMINISTRAZIONE",
                     "<b>Stato:</b> PUBBLICATO",
-                    '<a href="https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/791962">Atto ufficiale</a>',
-                    '<a href="https://example.test/katti/public/pap/edoc/download/unico/6500/791962">PDF ufficiale</a>',
-                    '<a href="https://example.test/katti/public/pap/edoc/download/single/6500/791962/abc/notice.pdf">Allegato PDF</a>',
                     "<blockquote expandable>ID: 791962</blockquote>",
                 ]
             ),
@@ -209,7 +210,7 @@ class FormatMessageTest(unittest.TestCase):
                 continue
             self.assertIn(f"{apt_cron.FIELD_LABELS[name]}: {notice[name]}", quote)
         self.assertIn('href="https://example.test/documento.pdf">PDF ufficiale</a>', message)
-        self.assertIn('href="https://example.test/allegato.pdf">Allegato PDF</a>', message)
+        self.assertIn('href="https://example.test/allegato.pdf">Allegato</a>', message)
         self.assertNotIn("Scadenza: non nota", message)
         for name in EXCLUDED_SOURCE_FIELDS:
             self.assertNotIn(name, message)
@@ -640,12 +641,32 @@ class RunOnceTest(unittest.TestCase):
 
         self.assertEqual(stats["published"], 1)
         telegram_calls = [call for call in transport.calls if "api.telegram.org" in call["url"]]
-        self.assertEqual(len(telegram_calls), 3)
+        self.assertEqual(len(telegram_calls), 4)
         self.assertIn("Atto aggiornato APT Basilicata", telegram_calls[0]["payload"]["text"])
         self.assertIn("Titolo aggiornato", telegram_calls[0]["payload"]["text"])
         self.assertIn("sendDocument", telegram_calls[1]["url"])
         self.assertIn("sendDocument", telegram_calls[2]["url"])
+        self.assertIn("sendDocument", telegram_calls[3]["url"])
         self.assertEqual(telegram_calls[1]["payload"]["caption"], "PDF ufficiale: Atto 244/2026")
+
+    def test_notice_without_documents_publishes_only_the_message(self):
+        response = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        transport = SequenceTransport(
+            response,
+            {"ok": True, "result": {"message_id": 1}},
+            {"error": False, "results": []},
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            config = run_config(Path(directory) / "state.json")
+            apt_cron.run_once(transport, config)
+            response["results"][0]["cntTitle"] = "Titolo aggiornato"
+            transport.calls.clear()
+
+            apt_cron.run_once(transport, config)
+
+        sent = [call for call in transport.calls if "api.telegram.org" in call["url"]]
+        self.assertEqual(len(sent), 1)
+        self.assertIn("sendMessage", sent[0]["url"])
 
     def test_dry_run_does_not_publish_or_write_state(self):
         response = json.loads(FIXTURE.read_text(encoding="utf-8"))
@@ -941,7 +962,7 @@ class DocumentCaptionTest(unittest.TestCase):
                 if "sendDocument" in call["url"]
             ]
 
-        self.assertEqual(len(documents), 2)
+        self.assertEqual(len(documents), 3)
         for call in documents:
             caption = call["payload"]["caption"]
             self.assertEqual(caption, "PDF ufficiale: Atto 244/2026")
@@ -1054,7 +1075,7 @@ class DocumentTransport:
 
 
 class PdfDeliveryTest(unittest.TestCase):
-    def test_fetch_attachments_exposes_only_pdf_urls(self):
+    def test_fetch_attachments_exposes_every_downloadable_attachment(self):
         response = json.loads((Path(__file__).parent / "fixtures" / "attachments_response.json").read_text(encoding="utf-8"))
         transport = FakeTransport(response)
 
@@ -1071,10 +1092,34 @@ class PdfDeliveryTest(unittest.TestCase):
             {
                 "document_url": "https://example.test/katti/public/pap/edoc/download/unico/6500/791962",
                 "attachment_urls": [
-                    "https://example.test/katti/public/pap/edoc/download/single/6500/791962/abc/notice.pdf"
+                    "https://example.test/katti/public/pap/edoc/download/single/6500/791962/abc/notice.pdf",
+                    "https://example.test/katti/public/pap/edoc/download/single/6500/791962/def/non-pdf.png",
                 ],
             },
         )
+
+    def test_fetch_attachments_ignores_non_http_download_urls(self):
+        response = {
+            "error": False,
+            "results": [
+                {
+                    "documentoUnico": {
+                        "mimeType": "application/pdf",
+                        "downloadUrl": "data:application/pdf;base64,AAAA",
+                    },
+                    "files": [
+                        {"mimeType": "application/pdf", "downloadUrl": "https://example.test/a.pdf"},
+                        {"mimeType": "image/png", "downloadUrl": "file:///tmp/a.png"},
+                    ],
+                }
+            ],
+        }
+
+        links = apt_cron.fetch_attachments(
+            FakeTransport(response), "https://example.test/api/pap/files", 791962
+        )
+
+        self.assertEqual(links, {"document_url": None, "attachment_urls": ["https://example.test/a.pdf"]})
 
     def test_fetches_the_pdf_bytes_and_uploads_them_as_a_document(self):
         transport = DocumentTransport()
@@ -1191,6 +1236,11 @@ class InputHardeningTest(unittest.TestCase):
         for unsafe in ('"', "\r", "\n"):
             self.assertNotIn(unsafe, name)
         self.assertTrue(name.endswith(".pdf"))
+
+    def test_multipart_body_infers_the_attachment_content_type(self):
+        body, _ = apt_cron.multipart_body({"chat_id": "1"}, "attachment.png", b"data")
+
+        self.assertIn(b"Content-Type: image/png", body)
 
     def test_multipart_headers_cannot_be_injected(self):
         body, _ = apt_cron.multipart_body(
@@ -1397,7 +1447,8 @@ class RefreshIndexTest(unittest.TestCase):
         self.assertEqual(
             first["attachment_urls"],
             [
-                "https://example.test/katti/public/pap/edoc/download/single/6500/791962/abc/notice.pdf"
+                "https://example.test/katti/public/pap/edoc/download/single/6500/791962/abc/notice.pdf",
+                "https://example.test/katti/public/pap/edoc/download/single/6500/791962/def/non-pdf.png",
             ],
         )
         self.assertEqual(set(first), set(apt_cron.INDEX_FIELDS))
@@ -1482,6 +1533,25 @@ class DynamicAttachmentsTransport(SequenceTransport):
 
 
 class NewNoticeDeliveryTest(unittest.TestCase):
+    def test_changed_notice_sends_the_pdf_and_every_attachment(self):
+        response = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        transport = SequenceTransport(response, {"ok": True, "result": {"message_id": 1}})
+        with tempfile.TemporaryDirectory() as directory:
+            config = run_config(Path(directory) / "state.json")
+            apt_cron.run_once(transport, config)
+            response["results"][0]["cntTitle"] = "Titolo aggiornato"
+            transport.calls.clear()
+
+            apt_cron.run_once(transport, config)
+
+        sent = [call for call in transport.calls if "api.telegram.org" in call["url"]]
+        self.assertEqual(len(sent), 4)
+        self.assertIn("sendMessage", sent[0]["url"])
+        self.assertEqual(
+            [call["filename"] for call in sent[1:]],
+            ["document.pdf", "notice.pdf", "non-pdf.png"],
+        )
+
     def test_new_notice_is_published_once_then_ignored(self):
         response = json.loads(FIXTURE.read_text(encoding="utf-8"))
         transport = DynamicAttachmentsTransport(response, {"ok": True, "result": {"message_id": 1}})
@@ -1583,9 +1653,9 @@ class AttachmentCacheRefreshTest(unittest.TestCase):
         self.assertEqual(transport.attachment_requests, ["791962"])
         self.assertIn(NEW_PDF["downloadUrl"], state["attachments"]["791962"]["attachment_urls"])
         self.assertIn(NEW_PDF["downloadUrl"], state["sent_documents"])
-        self.assertEqual(len(sent), 4)
+        self.assertEqual(len(sent), 5)
 
-    def test_unchanged_notice_reuses_the_cached_pdf_links(self):
+    def test_unchanged_notice_reuses_the_cached_attachment_links(self):
         response = json.loads(FIXTURE.read_text(encoding="utf-8"))
         transport = CountingAttachmentsTransport(
             response, {"ok": True, "result": {"message_id": 1}}
@@ -1705,8 +1775,13 @@ class ProductionConfigTest(unittest.TestCase):
         for name in apt_cron.NOTICE_FIELDS:
             if name not in ("published", "expires"):
                 notice[name] = "x" * 500
-        notice.update(number=244, year=2026)
-        notice["detail_url"] = "https://example.test/albo-pretorio/dettaglio/" + "a" * 5000
+        notice.update(
+            number=244,
+            year=2026,
+            detail_url="https://example.test/albo-pretorio/dettaglio/" + "a" * 5000,
+            document_url="https://example.test/documento.pdf",
+            attachment_urls=["https://example.test/allegato.png"],
+        )
 
         message = apt_cron.format_message(
             notice,
@@ -1714,6 +1789,9 @@ class ProductionConfigTest(unittest.TestCase):
         )
 
         self.assertLessEqual(len(message), apt_cron.TELEGRAM_TEXT_LIMIT)
+        self.assertIn('href="https://example.test/albo-pretorio/dettaglio/', message)
+        self.assertIn('href="https://example.test/documento.pdf">PDF ufficiale</a>', message)
+        self.assertIn('href="https://example.test/allegato.png">Allegato</a>', message)
         self.assertIn("Titolo:", message)
         for tag in ("b", "u", "blockquote", "a"):
             self.assertEqual(
@@ -1769,7 +1847,7 @@ class PdfRetryTest(unittest.TestCase):
             ],
         }
 
-    def test_all_pdfs_follow_one_message_and_non_pdf_is_skipped(self):
+    def test_all_documents_follow_one_message_and_non_pdf_is_sent(self):
         source = {"results": [archive_item(799999, "2026-11-25", 250)]}
         transport = SequenceTransport(
             source,
@@ -1792,16 +1870,16 @@ class PdfRetryTest(unittest.TestCase):
             state = apt_cron.load_state(config["state_path"])
 
         self.assertEqual(stats["published"], 1)
-        self.assertEqual(len(sent), 5)
+        all_urls = self.PDF_URLS + ["https://example.test/docs/non-pdf.png"]
+        self.assertEqual(len(sent), 6)
         self.assertIn("sendMessage", sent[0]["url"])
-        self.assertEqual([call["url"] for call in sent[1:]], [config["document_base"]] * 4)
-        self.assertEqual(fetched, self.PDF_URLS)
+        self.assertEqual([call["url"] for call in sent[1:]], [config["document_base"]] * 5)
+        self.assertEqual(fetched, all_urls)
         self.assertEqual(
             [call["filename"] for call in sent[1:]],
-            [url.rsplit("/", 1)[1] for url in self.PDF_URLS],
+            [url.rsplit("/", 1)[1] for url in all_urls],
         )
-        self.assertEqual(set(state["sent_documents"]), set(self.PDF_URLS))
-        self.assertNotIn("non-pdf.png", json.dumps(state))
+        self.assertEqual(set(state["sent_documents"]), set(all_urls))
 
     def test_duplicate_pdf_urls_are_uploaded_once(self):
         source = {"results": [archive_item(799999, "2026-11-25", 250)]}
@@ -1837,7 +1915,7 @@ class PdfRetryTest(unittest.TestCase):
             [call["filename"] for call in sent], ["documentoUnico.pdf", "allegato-1.pdf"]
         )
 
-    def test_partial_document_failure_retries_only_missing_pdfs(self):
+    def test_partial_document_failure_retries_only_missing_documents(self):
         source = {"results": [archive_item(799999, "2026-11-25", 250)]}
         transport = FailingDocumentTransport(
             source, self.attachments_response(), self.PDF_URLS[1]
@@ -1875,9 +1953,12 @@ class PdfRetryTest(unittest.TestCase):
         self.assertEqual([call for call in recovered if "sendMessage" in call["url"]], [])
         self.assertEqual(
             [call["filename"] for call in recovered if "sendDocument" in call["url"]],
-            ["allegato-1.pdf", "allegato-2.pdf", "allegato-3.pdf"],
+            ["allegato-1.pdf", "allegato-2.pdf", "allegato-3.pdf", "non-pdf.png"],
         )
-        self.assertEqual(set(state["sent_documents"]), set(self.PDF_URLS))
+        self.assertEqual(
+            set(state["sent_documents"]),
+            set(self.PDF_URLS + ["https://example.test/docs/non-pdf.png"]),
+        )
         self.assertEqual(state["sent_messages"]["799999"], state["notices"]["799999"])
 
 

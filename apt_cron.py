@@ -2,6 +2,7 @@ import argparse
 import hashlib
 import html
 import json
+import mimetypes
 import os
 import re
 import sys
@@ -278,15 +279,15 @@ def fetch_attachments(transport, attachments_base, notice_id):
     root = results[0]
     document = root.get("documentoUnico") or {}
     document_url = (
-        document.get("downloadUrl")
+        (public_url(document.get("downloadUrl")) or None)
         if document.get("mimeType") == "application/pdf"
         else None
     )
-    attachment_urls = [
-        item["downloadUrl"]
-        for item in root.get("files") or []
-        if item.get("mimeType") == "application/pdf" and item.get("downloadUrl")
-    ]
+    attachment_urls = []
+    for item in root.get("files") or []:
+        url = public_url(item.get("downloadUrl"))
+        if url:
+            attachment_urls.append(url)
     return {"document_url": document_url, "attachment_urls": attachment_urls}
 
 
@@ -309,7 +310,7 @@ def _header_value(value):
 def document_filename(document_url):
     name = Path(str(document_url or "").split("?", 1)[0]).name
     name = re.sub(r'[\\\x00-\x1f"]', "_", name)
-    return name if name.lower().endswith(".pdf") else "document.pdf"
+    return name if name and Path(name).suffix else "document.pdf"
 
 
 def publish_document(transport, telegram_url, chat_id, document_url, caption):
@@ -373,9 +374,9 @@ def write_index(directory, index):
         for url in row["attachment_urls"] or []:
             attachment = public_url(url)
             markdown.append(
-                f"  - [Allegato PDF]({attachment})"
+                f"  - [Allegato]({attachment})"
                 if attachment
-                else "  - Allegato PDF: link non disponibile"
+                else "  - Allegato: link non disponibile"
             )
     (Path(directory) / "index.md").write_text("\n".join(markdown) + "\n", encoding="utf-8")
     html_lines = [
@@ -411,9 +412,9 @@ def write_index(directory, index):
         for url in row["attachment_urls"] or []:
             attachment = public_url(url)
             html_lines.append(
-                f'<li><a href="{html.escape(attachment, quote=True)}">Allegato PDF</a></li>'
+                f'<li><a href="{html.escape(attachment, quote=True)}">Allegato</a></li>'
                 if attachment
-                else "<li>Allegato PDF: link non disponibile</li>"
+                else "<li>Allegato: link non disponibile</li>"
             )
         html_lines.append("</ul></li>")
     html_lines.extend(["</ul>", "</body>", "</html>"])
@@ -432,7 +433,7 @@ def enrich_notices(transport, notices, state, attachments_base, detail_base):
         cached = attachments.get(key)
         # The stored fingerprint was taken with the cached links applied, so it still
         # matches only while the source metadata is unchanged. A changed notice may have
-        # gained or replaced an official PDF, so its links are refetched instead of reused.
+        # gained or replaced an official document, so its links are refetched instead of reused.
         unchanged = cached is not None and state["notices"].get(key) == fingerprint(
             {**item, **cached}
         )
@@ -522,7 +523,7 @@ def run_once(transport, config):
             working["sent_messages"][key] = current
             save_state(config["state_path"], working)
 
-        # A seeded notice has no published message, so it uploads no PDFs. Any notice
+        # A seeded notice has no published message, so it uploads no documents. Any notice
         # with a sent message retries the URLs it is still missing.
         missing = []
         if working["sent_messages"].get(key) == current:
@@ -540,7 +541,7 @@ def run_once(transport, config):
             working["sent_documents"][url] = key
             save_state(config["state_path"], working)
 
-        # Every required PDF succeeded, so this fingerprint is safe to commit.
+        # Every required document succeeded, so this fingerprint is safe to commit.
         if working["notices"].get(key) != current:
             working["notices"][key] = current
             working["attachments"][key] = attachments[key]
@@ -661,6 +662,12 @@ def format_message(notice, detail_base, updated=False, archived=False, today=Non
         f"<b>{headline}</b>",
         f"<u>Atto {_esc(notice.get('number'))}/{_esc(notice.get('year'))}</u>",
     ]
+    detail_url = notice.get("detail_url") or f"{detail_base.rstrip('/')}/{notice.get('id') or ''}"
+    head.append(_link(detail_url, "Atto ufficiale"))
+    if notice.get("document_url"):
+        head.append(_link(notice["document_url"], "PDF ufficiale"))
+    for url in notice.get("attachment_urls") or []:
+        head.append(_link(url, "Allegato"))
     if notice.get("title"):
         head.append(f"<b>Titolo:</b> {_esc(notice['title'])}")
     if notice.get("published"):
@@ -677,12 +684,6 @@ def format_message(notice, detail_base, updated=False, archived=False, today=Non
         head.append(" ".join(_esc(tag) for tag in tags))
     if notice.get("status"):
         head.append(f"<b>Stato:</b> {_esc(notice['status'])}")
-    detail_url = notice.get("detail_url") or f"{detail_base.rstrip('/')}/{notice.get('id') or ''}"
-    head.append(_link(detail_url, "Atto ufficiale"))
-    if notice.get("document_url"):
-        head.append(_link(notice["document_url"], "PDF ufficiale"))
-    for url in notice.get("attachment_urls") or []:
-        head.append(_link(url, "Allegato PDF"))
     quote = [
         f"{_esc(label)}: {_esc(value)}" for label, value in _field_rows(notice, MESSAGE_MAIN_FIELDS)
     ]
@@ -702,7 +703,7 @@ def multipart_body(fields, filename, content):
     head += (
         f'--{boundary}\r\nContent-Disposition: form-data; name="document"; '
         f'filename="{_header_value(filename)}"\r\n'
-        "Content-Type: application/pdf\r\n\r\n"
+        f"Content-Type: {mimetypes.guess_type(filename)[0] or 'application/octet-stream'}\r\n\r\n"
     ).encode("utf-8")
     # shortcut: the body is assembled in memory, so a 50 MB document peaks at roughly twice its size;
     # stream the parts only if the Telegram limit grows.

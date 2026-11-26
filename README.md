@@ -8,11 +8,11 @@ The Wayfinder map is [APT public notices crawler and notification plan](https://
 
 1. Reads the official APT Basilicata public notices API once per run.
 2. Extracts every public field the register exposes for an act: 41 source keys covering title, category, sector, publication dates, year, notice number, status and the remaining register fields, excluding only internal account, login, audit and responsible-person keys.
-3. Reads official PDF links from the source attachment endpoint and caches them in local state.
+3. Reads the official published PDF and every downloadable attachment link from the source attachment endpoint and caches them in local state.
 4. Compares SHA-256 fingerprints with local state.
-5. Sends a short Telegram HTML message with the official links, then uploads each official PDF for new or changed notices: the bytes are fetched into memory and posted in a multipart `sendDocument` body, bounded at 50 MB and never written to disk. Each PDF URL is sent once; the document caption identifies the act number and year.
+5. Sends a short Telegram HTML message with the official links, then uploads the published PDF and every downloadable attachment for new or changed notices: the bytes are fetched into memory and posted in multipart `sendDocument` bodies, bounded at 50 MB and never written to disk. Each document URL is sent once; the caption identifies the act number and year.
 6. Regenerates `public/index.json`, `public/index.md` and `public/index.html` from the same published fields.
-7. Saves state incrementally after each successful message and document, and commits a notice fingerprint only after all its PDFs have uploaded.
+7. Saves state incrementally after each successful message and document, and commits a notice fingerprint only after all its documents have uploaded.
 8. A scheduled GitHub Actions workflow refreshes the index hourly and commits only changed `public/index.*` files.
 
 Messages are always published oldest to newest, so within one run the newest act is the last message in
@@ -21,7 +21,7 @@ the chat. The index keeps the source order, newest first.
 The message is sent with `parse_mode` `HTML` ([ADR 0009](docs/adr/0009-readable-telegram-act-message.md)).
 A bold headline, the underlined act number and year, the title, the publication and expiry dates, the
 document date when the source has one, the category and sector hashtags, the status and the labelled
-official and PDF links are visible. The headline uses one of four fixed Italian labels for new, updated,
+official, PDF and attachment links are visible. The headline uses one of four fixed Italian labels for new, updated,
 expired or archived acts. Precedence is updated, expired, archived, new. The state comes from fields
 already published plus the run mode, so the headline adds no source field and needs no state migration.
 The renderer places remaining non-empty public fields in an expandable `<blockquote>` when the
@@ -32,13 +32,13 @@ characters.
 
 The first run seeds state from the current source without publishing. This avoids an initial channel flood.
 
-State tracks the fingerprint of the last sent text message separately from the notice fingerprint. If a run stops after the message, the next unchanged run uploads only the missing PDF URLs and sends no second message. A legacy state seeds that sent-message fingerprint only for notices whose document was already uploaded, so migration does not duplicate text messages or upload documents for acts that were only seeded.
+State tracks the fingerprint of the last sent text message separately from the notice fingerprint. If a run stops after the message, the next unchanged run uploads only the missing document URLs and sends no second message. A legacy state seeds that sent-message fingerprint only for notices whose document was already uploaded, so migration does not duplicate text messages or upload documents for acts that were only seeded.
 
 Fingerprints cover every published field, so a deploy that changes the field set changes every fingerprint. Move or delete `APT_STATE_PATH` once before the first run after such a change; otherwise that run publishes every current notice as an update.
 
 The publication boundary is fixed by [ADR 0005](docs/adr/0005-publication-boundary.md): there are two publication surfaces, the Telegram channel and the committed `public/index.*`, and both carry the same field set. Every public field of an act is published, including `Titolo` and `Settore`; only the internal account, login, audit and responsible-person keys (`cntAutore*`, `cntResponsabileProcedimento*`, `cntResponsabilePubblicazione*`, `ultimaAnnotazione*`) never leave the source projection.
 
-The source API exposes notice discovery only as a read-only `POST /api/pap/filter`, confirmed by the [official OpenAPI document](https://siopi.publisys.it/kapi-aptbasilicata/v3/api-docs). The user authorized that POST. PDF links are read with `GET /api/pap/files/{id}`. Publishing uses `POST /sendMessage` and `POST /sendDocument` with the PDF bytes in a multipart body.
+The source API exposes notice discovery only as a read-only `POST /api/pap/filter`, confirmed by the [official OpenAPI document](https://siopi.publisys.it/kapi-aptbasilicata/v3/api-docs). The user authorized that POST. The published PDF and every downloadable attachment link are read with `GET /api/pap/files/{id}`. Publishing uses `POST /sendMessage` and `POST /sendDocument` with document bytes in multipart bodies.
 
 The implementation is tracked in [Publish only new APT notices with PDF links and generated index](https://github.com/darkrei08/apt-cron-albo-pretorio/issues/8).
 
@@ -62,9 +62,9 @@ No third-party Python package is required.
 | `APT_NATURE_ID` | no | `200152` | Notice category identifier from the source |
 | `APT_PAGE_SIZE` | no | `20` | Number of notices requested per run |
 | `APT_DETAIL_BASE` | no | `https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio` | Base URL used to build official detail links |
-| `APT_ATTACHMENTS_BASE` | no | `https://siopi.publisys.it/kapi-aptbasilicata/api/pap/files` | Base URL for official PDF link lookup |
+| `APT_ATTACHMENTS_BASE` | no | `https://siopi.publisys.it/kapi-aptbasilicata/api/pap/files` | Base URL for official PDF and attachment link lookup |
 | `APT_INDEX_DIR` | no | `public` | Directory receiving generated index files |
-| `APT_STATE_PATH` | no | `state/notices.json` | File holding fingerprints, cached PDF links and sent document URLs |
+| `APT_STATE_PATH` | no | `state/notices.json` | File holding fingerprints, cached document links and sent document URLs |
 | `APT_ENV_FILE` | no | `.env` in the repository root | Alternative `KEY=VALUE` file loaded before any setting |
 
 The generated `state/` directory and Telegram credentials are not committed.
@@ -96,7 +96,7 @@ python3 apt_cron.py --refresh-index
 Publish the whole published archive, not just the current window, oldest act first and with no index
 rebuild. This is a one-off recovery path: it reads every page the source holds, sends a message for
 every act not yet in state, and publishes nothing on a rerun of unchanged acts. Archived acts that
-no longer expose PDFs still produce their metadata message; only the document messages are omitted.
+no longer expose documents still produce their metadata message; only the document messages are omitted.
 
 ```sh
 python3 apt_cron.py --backfill --dry-run   # read the archive and report without sending
@@ -141,21 +141,21 @@ repository `GITHUB_TOKEN`.
 
 ## Download section
 
-**What is downloaded:** the JSON notice list, the JSON attachment-link list, and the PDF bytes of each published official document. PDF bytes are fetched into memory, sent to Telegram in a multipart `sendDocument` body and never written to disk. Telegram does not fetch the source URL itself (that failed live with `400 Bad Request: failed to get HTTP URL content`). A PDF above 50 MB is rejected before the upload and fails the run.
+**What is downloaded:** the JSON notice list, the JSON attachment-link list, and the bytes of the published PDF plus every downloadable attachment. Document bytes are fetched into memory, sent to Telegram in multipart `sendDocument` bodies and never written to disk. Telegram does not fetch the source URL itself (that failed live with `400 Bad Request: failed to get HTTP URL content`). Any document above 50 MB is rejected before the upload and fails the run.
 
 **Where it is downloaded from:** `https://siopi.publisys.it/kapi-aptbasilicata/api/pap/filter?page=0&size=<APT_PAGE_SIZE>` by read-only POST, and `https://siopi.publisys.it/kapi-aptbasilicata/api/pap/files/{id}` by GET for notices not already cached in state. Requests use `User-Agent: apt-cron/1.0` and a 20-second timeout. With `--backfill` the same POST is sent without the two publication-window criteria and once per page, up to the page count the source reports.
 
 **When:** once per invocation. The intended schedule is hourly, but scheduling is the operator's choice and is not performed by the script.
 
-**Where it is saved:** raw responses and PDF bytes stay in memory. SHA-256 fingerprints, cached official PDF URLs and URLs already sent to Telegram are written to `APT_STATE_PATH` (`state/notices.json` by default). Generated public index files are written to `APT_INDEX_DIR` (`public/` by default) and are committed to this repository by the hourly workflow, so the repository and any hosting of it are a publication surface. No PDF bytes are written. The field allowlist publishes every public field of an act, so the free-text fields (`Titolo`, `Categoria`, `Settore`, `Proponente`, `Autorita mittente`, notes) are published text; it excludes only the internal account, login, audit and responsible-person keys listed above.
+**Where it is saved:** raw responses and document bytes stay in memory. SHA-256 fingerprints, cached official document URLs and URLs already sent to Telegram are written to `APT_STATE_PATH` (`state/notices.json` by default). Generated public index files are written to `APT_INDEX_DIR` (`public/` by default) and are committed to this repository by the hourly workflow, so the repository and any hosting of it are a publication surface. No document bytes are written. The field allowlist publishes every public field of an act, so the free-text fields (`Titolo`, `Categoria`, `Settore`, `Proponente`, `Autorita mittente`, notes) are published text; it excludes only the internal account, login, audit and responsible-person keys listed above.
 
-**What the project does:** reads public metadata and official PDF links, publishes a short message followed by the PDF documents, records fingerprints and sent URLs, and regenerates the published index from the same allowed fields. It does not copy official documents into the repository or into a local archive.
+**What the project does:** reads public metadata and official document links, publishes a short message followed by the published PDF and every downloadable attachment, records fingerprints and sent URLs, and regenerates the published index from the same allowed fields. It does not copy official documents into the repository or into a local archive.
 
 **What the operator is responsible for:** providing credentials through a gitignored local `.env`, an
 `APT_ENV_FILE` file, or the protected environment file, choosing the state and index paths, scheduling
 the job, protecting logs, checking that the Telegram bot has the right permissions, monitoring failures, and answering data-rights requests. Withdrawal is not automated: a withdrawn notice stays in the channel as the permanent record and leaves the index on the next hourly refresh (ADR 0004). Publishing a key that the allowlist excludes (an internal account, login, audit or responsible-person field) would require a new Wayfinder decision; every other public field of an act is already published. After a change to the field set, reseed state once as described above.
 
-**Not verified:** no production cron schedule was installed. A live `sendMessage` and multipart `sendDocument` both succeeded in the private validation channel: one notice produced one text message and two PDF documents. That validation predates the current HTML message format, so HTML rendering remains unverified until the private checklist is rerun. A `sendDocument` that passed the official PDF URL failed earlier with `400 Bad Request: failed to get HTTP URL content`, which is why documents are now uploaded as bytes. The `--refresh-index` path was exercised against the live source; long-term source availability, workflow longevity and rendering in other Telegram clients remain unverified.
+**Not verified:** no production cron schedule was installed. A live `sendMessage` and multipart `sendDocument` both succeeded in the private validation channel: one notice produced one text message and two documents; the historical fixture contained PDFs only and did not validate non-PDF attachments. That validation predates the current HTML message format, so HTML rendering and all-attachment delivery remain unverified until the private checklist is rerun. A `sendDocument` that passed the official PDF URL failed earlier with `400 Bad Request: failed to get HTTP URL content`, which is why documents are now uploaded as bytes. The `--refresh-index` path was exercised against the live source; long-term source availability, workflow longevity and rendering in other Telegram clients remain unverified.
 
 ## Production checks
 
@@ -168,9 +168,9 @@ the job, protecting logs, checking that the Telegram bot has the right permissio
 - `--backfill` reads the whole archive page by page, publishes oldest to newest, writes no index and
   keeps state per successful publish, so an interrupted backfill resumes on the next run. It cannot be
   combined with `--refresh-index`.
-- A failed PDF upload leaves the notice fingerprint uncommitted; the next unchanged run retries only
-  the missing PDF URLs and never resends the text message.
-- Cached PDF links are refreshed when a notice's source metadata changes; unchanged notices reuse their
+- A failed document upload leaves the notice fingerprint uncommitted; the next unchanged run retries only
+  the missing document URLs and never resends the text message.
+- Cached document links are refreshed when a notice's source metadata changes; unchanged notices reuse their
   cached links.
 - `.github/workflows/ci.yml` compiles and runs the full test suite on pushes to `main` and pull requests;
   `.github/workflows/update-index.yml` refreshes the committed index hourly.
@@ -183,4 +183,4 @@ Run the full suite:
 python3 -m unittest discover -s tests -v
 ```
 
-The tests use local fixtures and fake transports; they do not contact APT Basilicata or Telegram. They cover the published outputs (Telegram HTML, captions, index files), the exact message layout, the four state headlines and their precedence, HTML escaping of hostile values, the unknown-expiry note, the multipart document upload and its 50 MB bound, the exact included and excluded field sets, the unchanged dedupe behavior, multiple PDF attachments, partial document-failure recovery, the credential-free refresh path, the archive criteria and pagination, the oldest-to-newest publication order and the `--backfill` path.
+The tests use local fixtures and fake transports; they do not contact APT Basilicata or Telegram. They cover the published outputs (Telegram HTML, captions, index files), the exact message layout, the four state headlines and their precedence, HTML escaping of hostile values, the unknown-expiry note, the multipart document upload and its 50 MB bound, the exact included and excluded field sets, the unchanged dedupe behavior, PDF and non-PDF attachments, partial document-failure recovery, the credential-free refresh path, the archive criteria and pagination, the oldest-to-newest publication order and the `--backfill` path.
