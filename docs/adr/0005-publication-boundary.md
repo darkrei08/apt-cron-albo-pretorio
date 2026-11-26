@@ -1,7 +1,7 @@
 # 0005 — Publication boundary: what may be published, retained and removed
 
 - Status: accepted
-- Decision record: GitHub issue #6 (open)
+- Decision record: GitHub issue #6 (closed)
 
 ## Context
 

@@ -1,7 +1,7 @@
 # 0004 — Withdrawal and retention of messages, state and index
 
 - Status: accepted
-- Decision record: GitHub issue #11 (open)
+- Decision record: GitHub issue #11 (closed)
 
 ## Context
 

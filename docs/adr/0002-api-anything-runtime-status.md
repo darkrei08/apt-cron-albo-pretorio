@@ -1,7 +1,7 @@
 # 0002 — api-anything and fast-anything are not runtime dependencies
 
 - Status: accepted
-- Decision record: GitHub issue #12 (open)
+- Decision record: GitHub issue #12 (closed)
 
 ## Context
 

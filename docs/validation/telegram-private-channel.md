@@ -31,6 +31,11 @@ export APT_INDEX_DIR="$CHECK_DIR/public"
 Record every result as PASS, FAIL or NOT RUN. A FAIL is only acceptable with a named owner and a
 follow-up ticket.
 
+**Historical scope.** The PASS results below were recorded on 2026-11-26 against the plain-text
+message format, before the current HTML format (ADR 0009), before `sent_messages` and before
+`--backfill`. They do not validate the current tree. V2 must be rerun because the historical state
+schema predates `sent_messages`, and V4 must be rerun because the message layout changed.
+
 ## V1 — Read-only dry run
 
 ```sh
@@ -40,7 +45,7 @@ python3 apt_cron.py --dry-run
 Expected: exit code `0`; a single JSON line such as `{"dry_run": true, "notices": <N>,
 "published": 0}`; **no** file created at `APT_STATE_PATH` and **no** index directory created.
 
-Result: PASS
+Result: PASS (historical plain-text run; the read-only path is unchanged)
 
 ## V2 — First live run seeds state without publishing
 
@@ -54,85 +59,91 @@ python3 apt_cron.py
 ```
 
 Expected: exit code `0`; `"published": 0`; `$APT_STATE_PATH` created with `version`, `notices`,
-`attachments` and `sent_documents`; `index.json`, `index.md` and `index.html` created in
-`$APT_INDEX_DIR`; **no** message in the channel.
+`attachments`, `sent_documents` and `sent_messages`; `index.json`, `index.md` and `index.html` created
+in `$APT_INDEX_DIR`; **no** message in the channel.
 
-Result: PASS
+Result: HISTORICAL PASS against a state schema without `sent_messages`; rerun required for the
+current schema.
 
 ## V3 — Publish one notice
 
 Make one already-seeded notice look new by removing its key from the `notices` map in
 `$APT_STATE_PATH` (edit the JSON; keep the rest of the file intact), then repeat the V2 command.
 
-Expected: one plain-text message plus one document message per official PDF for that notice;
+Expected: one HTML-formatted message plus one document message per official PDF for that notice;
 `sent_documents` gains one entry per document URL; index files regenerated.
 
-Result: PASS
+Result: HISTORICAL PASS for the previous plain-text format; current HTML execution is not recorded.
 
 ## V4 — Message rendering and official link
 
 Check against the message from V3:
 
-1. The headline distinguishes a new notice from an updated notice after a first publish. Format
-   source: `apt_cron.py:451-469`.
-2. The identity block is present in order: headline, date, title, category hashtag, sector hashtag,
-   act number and year, status and official link, plus PDF link lines when documents exist. Every
-   included public source field with a non-empty value also appears as a label/value line, per ADR
-   0005.
-3. No markup appears literally: no asterisks, underscores or HTML tags introduced by the sender.
-   The code sets no `parse_mode`, so any `_` or `*` you see comes from the source data itself.
-4. `Categoria:` and `Settore:` render as single-token hashtags (`#Category_With_Underscore`) and
+1. The first line is a bold headline and distinguishes new, updated, expired and archive-backfill
+   notices, with precedence updated, expired, archived, new. Format source: `format_message` and
+   `_act_headline` in `apt_cron.py`.
+2. The second line is the underlined identity `<u>Atto <number>/<year></u>`.
+3. The visible block follows with the translated title, publication, expiry and optional document
+   dates, the category and sector hashtags, the status, then labelled official and PDF links when
+   documents exist.
+4. Every remaining non-empty public source field appears as a `Label: value` line inside a single
+   expandable `<blockquote expandable>` (ADR 0005). When the source has no expiry, the quote starts
+   with the tested Italian unknown-expiry marker.
+5. Telegram renders the tags from the sender's `parse_mode: HTML` payload, with no literal tags
+   visible in the client. Dynamic values, hashtags and URLs are escaped before rendering, so source
+   `_` or `*` characters remain data rather than sender markup.
+6. `Categoria:` and `Settore:` render as single-token hashtags (`#Category_With_Underscore`) and
    Telegram turns them into tappable/searchable hashtags.
-5. `Link:` opens the official APT detail page in a browser (the exact notice, not the register
-   home page), and the link is worth a preview card only if that is acceptable.
-6. Screen-reader order is linear and the official link is the last core field before any optional
-   PDF line.
+7. `Atto ufficiale` opens the official APT detail page in a browser (the exact notice, not the
+   register home page), and the link is worth a preview card only if that is acceptable.
+8. Screen-reader order is linear: headline, identity, visible fields, links, then the expandable quote.
 
-Result: PASS
+Result: HISTORICAL PASS for the plain-text format; **NOT RUN for the current HTML format**. The
+repository operator must rerun V4 in the private validation channel before the release gate can pass.
 
 ## V5 — Document delivery as uploaded bytes
 
 1. A document message arrives for each official PDF (`documentoUnico` plus PDF attachments).
 2. Opening the document works. The script fetches the PDF into memory and uploads the bytes in a
-   multipart `sendDocument` body (`publish_document` `apt_cron.py:248-260`, `multipart_body`
-   `:472-489`, transport `send_document` `:514-527`), so Telegram no longer fetches the source URL
+   multipart `sendDocument` body (`publish_document` and `multipart_body` in `apt_cron.py`,
+   transport `UrllibTransport.send_document`), so Telegram no longer fetches the source URL
    and an expiring source URL shows up as a fetch error in the run, not as a document Telegram could
    not open. This replaces the previous URL hand-off, which failed live with
    `400 Bad Request: failed to get HTTP URL content`.
 3. File name and type are those of the source (`notice.pdf` style) or `document.pdf` when the source
-   URL carries no file name (`document_filename` `apt_cron.py:243-245`); content type is
+   URL carries no file name (`document_filename`); content type is
    `application/pdf`.
 4. The largest real notice PDF is accepted.
-   - **PDF size check.** The upload is bounded at 50 MB (`DOCUMENT_MAX_BYTES`, `apt_cron.py:18`).
+   - **PDF size check.** The upload is bounded at 50 MB (`DOCUMENT_MAX_BYTES`).
      Recorded largest observed PDF: 9.55 MB. A PDF above the bound is rejected before upload and
      fails the run with exit code `1`, as the unit suite proves for the boundary.
 5. Non-PDF attachments are never sent. The local unit test proves that `fetch_attachments` keeps only
    PDF MIME types and its fixture includes an `image/png` entry. In the live channel this item remains
    NOT RUN unless a real notice with a non-PDF attachment is observed and no document message appears
-   for it (`apt_cron.py:217-240`). If no such notice exists during validation, mark this item
+   for it (`fetch_attachments`). If no such notice exists during validation, mark this item
    NOT RUN and record it as accepted non-applicable with the repository operator as named owner; the
    release gate allows that disposition explicitly.
 
-Result: PASS (PDF upload); V5.5 NOT RUN / accepted non-applicable: no live non-PDF attachment was observed in the selected notice
+Result: HISTORICAL PASS (PDF upload) for the plain-text run; V5.5 NOT RUN / accepted non-applicable: no live non-PDF attachment was observed in the selected notice
 
 ## V6 — Caption bound
 
 The caption identifies the act by number and year and is bounded to 1024 characters by
-`document_caption` (`apt_cron.py:426-430`). The message text remains bounded separately at 4096
-characters. The caption carries no title, so a long title cannot affect it; if a notice with an
-unusually long act number is available, confirm the truncated caption is accepted.
+`document_caption`. The message text remains bounded separately at 4096 characters. The caption
+carries no title, so a long title cannot affect it; if a notice with an unusually long act number is
+available, confirm the truncated caption is accepted.
 
 1. Confirm captions arrive intact and identify the act unambiguously.
 2. Confirm no title text appears in any caption.
 3. **Caption decision.** Accepted and implemented. This item is PASS only after a caption has been
    observed in the private channel.
 
-Result: PASS
+Result: HISTORICAL PASS for the plain-text run; the caption path is unchanged.
 
 ## V7 — Message identifier decision
 
 `publish_message` and `publish_document` return Telegram's `result` object, which contains
-`message_id`; `run_once` discards both (`apt_cron.py:376-412`). Nothing in `$APT_STATE_PATH`
+`message_id`; `run_once` discards both. Nothing in `$APT_STATE_PATH`
 therefore identifies a published message.
 
 - **Store `message_id`?** Accepted decision: no. ADR 0004 keeps messages as the permanent record and
@@ -140,7 +151,7 @@ therefore identifies a published message.
 - Observation for the record: note whether the Telegram client shows any way to locate a message by
   content if `message_id` were absent (search by title, by hashtag) and how reliable it is.
 
-Result: PASS
+Result: PASS (historical plain-text run; message identifiers are unused by design)
 
 ## V8 — Failure path
 
@@ -156,7 +167,7 @@ python3 apt_cron.py
 ```
 
 Expected: exit code `1`, one stderr line beginning `error:`, no traceback, and the token value not
-printed (`redact_credentials`, `apt_cron.py:540-542`; handler `:620`). Also check:
+printed (`redact_credentials`; the exception handler in `main`). Also check:
 
 ```sh
 APT_PAGE_SIZE=bogus python3 apt_cron.py --dry-run
@@ -170,24 +181,25 @@ env -u TELEGRAM_BOT_TOKEN -u TELEGRAM_CHAT_ID APT_ENV_FILE=/nonexistent python3 
 ```
 
 Expected: exit code `2` and the message about `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`
-(`apt_cron.py:586-589`). The invalid-page-size case above remains a separate configuration check and
-does not test credentials, because `--dry-run` does not require them.
+(the credential guard in `main`). The invalid-page-size case above remains a separate configuration
+check and does not test credentials, because `--dry-run` does not require them.
 With `--refresh-index` and no credentials the same run must instead succeed without contacting
-Telegram (`apt_cron.py:615-616`).
+Telegram (`refresh_index` in `apt_cron.py`).
 
-Result: PASS
+Result: HISTORICAL PASS for the plain-text run; rerun against the current tree.
 
 ## V9 — Record and hand off
 
-- [x] Every item above is PASS, or an accepted non-applicable with a named owner.
-- [x] Evidence captured: the message text, the document names, the largest PDF size (9.55 MB), and
-      the exit codes of V1, V2 and V8.
-- [x] `docs/adr/0006-notification-format-and-channel.md` records all items as accepted after V4,
-      V5, V6 and V7 were answered.
-- [x] The local env file was deleted after the check; no token was written into this file or any
-      commit.
+- [ ] Current release candidate has every core item at PASS, or an accepted non-applicable result
+      with a named owner. V2 and V4 must be rerun for the current schema and HTML format.
+- [x] Historical evidence captured: the message text, document names, largest PDF size (9.55 MB),
+      and exit codes of V1, V2 and V8.
+- [ ] The current HTML rendering is accepted in the release evidence after the new V4 run.
+- [x] The local env file was deleted after the historical check; no token was written into this file
+      or any commit.
 
-Result: PASS with one residual action: rotate the token that was pasted into the conversation
+Result: HOLD for the current HTML release candidate. The repository operator must rerun V2 and V4,
+update this record and rotate the token that was pasted into the conversation before production.
 
 ## Known limits of this checklist
 
@@ -202,7 +214,7 @@ Result: PASS with one residual action: rotate the token that was pasted into the
 - V1: `python3 apt_cron.py --dry-run` exited `0` with `{"dry_run": true, "notices": 14, "published": 0}`.
 - V2: the first live run exited `0`, seeded 14 notices, wrote state and the three index files, and published nothing.
 - V3: after removing one state key, the run exited `0`, published one notice and uploaded two PDF documents. The state recorded two sent document URLs.
-- V4: the private channel rendered the full plain-text field set, category and sector hashtags, and the official detail link.
+- Historical V4: the private channel rendered the full plain-text field set, category and sector hashtags, and the official detail link. This does not validate the current HTML format.
 - V5: both PDF documents arrived with bounded captions. The largest observed PDF was 9.55 MB, below the 50 MB bound.
 - V6: captions were bounded and identified the act by number and year.
 - V8: an invalid token exited `1` with one redacted error line; a bad page size exited `2`; missing credentials exited `2`.

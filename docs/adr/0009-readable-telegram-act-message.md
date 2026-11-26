@@ -27,20 +27,21 @@ captions stay at 0-1024 characters.
    and sector hashtags on one line, the status, and the labelled official link. The PDF document and
    attachment links follow as labelled links. The newest act is the last message in the chat, and inside
    the message its identity is now the first thing read.
-2. **The headline states the act state.** Four fixed Italian labels, decided in this order:
-   `Atto aggiornato APT Basilicata` when the notice changed since the last run, `Atto scaduto APT
-   Basilicata` when `status` is `SCADUTO` or `expires` is a parsable ISO date earlier than the run's
-   `today`, `Atto archiviato APT Basilicata` when the run is the archive backfill, and `Nuovo atto APT
-   Basilicata` otherwise. Precedence is updated, expired, archived, new, so an expired act inside a
-   backfill is labelled expired. The state is derived from fields already published (`status`,
-   `expires`) plus the run mode: no new source field, no state migration and no extra Telegram call.
-3. **Everything else inside the quote.** All remaining non-empty public fields from `NOTICE_FIELDS`
-   (`id`, `otypeId` and the other technical register fields) are one `Label: value` line each inside
-   `<blockquote expandable>`. The quote collapses in the client, so the visible message is short and no
-   public field is lost.
+2. **The headline states the act state.** Four fixed Italian labels describe updated, expired, archived
+   and new notices, decided in that order. An update label is used when the notice changed since the
+   last run; an expired label is used when `status` is `SCADUTO` or `expires` is a parsable ISO date
+   earlier than the run's `today`; an archived label is used for archive backfill; the new label is the
+   default. Precedence is updated, expired, archived, new, so an expired act inside a backfill is
+   labelled expired. The state is derived from fields already published (`status`, `expires`) plus the
+   run mode: no new source field, no state migration and no extra Telegram call.
+3. **Everything else inside the quote.** The renderer places remaining non-empty public fields from
+   `NOTICE_FIELDS` (`id`, `otypeId` and the other technical register fields) as `Label: value` lines
+   inside `<blockquote expandable>` when the message budget permits. The quote collapses in the
+   client, so normal messages stay compact; the global bound may clip trailing quote lines for
+   pathological input.
 3. **Unknown expiry is explicit.** When `expires` is empty the visible part carries no expiry line and
-   the quote starts with `Scadenza: non nota`, so a reader never has to guess whether an act has no
-   end date or the data is missing.
+   the quote starts with the tested Italian unknown-expiry marker, so a reader never has to guess
+   whether an act has no end date or the data is missing.
 4. **Escaping.** Every dynamic value, hashtag and URL passes through `html.escape(..., quote=True)`.
    Values are clipped after escaping, and the clip never ends inside an entity or a tag, so a hostile
    or long value cannot inject markup and cannot break the message.
@@ -66,7 +67,7 @@ the same `_field_rows` used by the index, so the message and the index cannot dr
 - The bound is applied to HTML, not to plain text, so it counts escaped characters. Only pathological
   notices reach it, and the tests assert balanced tags at that point.
 - Rendering in a real client was not re-verified by this change: the private-channel checklist still
-  governs live sign-off, and no live message was sent while implementing this ADR.
+  governs live sign-off, and the production-readiness map tracks the required rerun before release.
 - The headline is text only. The status field keeps its own escaped `Stato:` line, and nothing in the
   message changes colour, so the state is readable in every client, including one that ignores
   `blockquote expandable`.

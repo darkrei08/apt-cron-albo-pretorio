@@ -21,15 +21,14 @@ the chat. The index keeps the source order, newest first.
 The message is sent with `parse_mode` `HTML` ([ADR 0009](docs/adr/0009-readable-telegram-act-message.md)).
 A bold headline, the underlined act number and year, the title, the publication and expiry dates, the
 document date when the source has one, the category and sector hashtags, the status and the labelled
-official and PDF links are visible. The headline states the act state in one fixed text label:
-`Nuovo atto APT Basilicata` by default, `Atto aggiornato APT Basilicata` when the act changed since the
-last run, `Atto scaduto APT Basilicata` when the status is `SCADUTO` or the expiry date is before the run
-date, and `Atto archiviato APT Basilicata` for acts published by the archive backfill. Precedence is
-updated, expired, archived, new. The state comes from fields already published plus the run mode, so the
-headline adds no source field and needs no state migration. Every other non-empty public field sits in an expandable
-`<blockquote>`, so the message stays short without dropping a field. When the source has no expiry
-date the quote says `Scadenza: non nota`. Every dynamic value is HTML-escaped, and the rendered HTML is
-bounded to 4096 characters.
+official and PDF links are visible. The headline uses one of four fixed Italian labels for new, updated,
+expired or archived acts. Precedence is updated, expired, archived, new. The state comes from fields
+already published plus the run mode, so the headline adds no source field and needs no state migration.
+The renderer places remaining non-empty public fields in an expandable `<blockquote>` when the
+message budget permits; normal messages stay short while the 4096-character bound may clip trailing
+quote lines for pathological input. When the
+source has no expiry date, the quote uses the tested Italian unknown-expiry marker. Every dynamic value is HTML-escaped, and the rendered HTML is bounded to 4096
+characters.
 
 The first run seeds state from the current source without publishing. This avoids an initial channel flood.
 
@@ -125,7 +124,8 @@ python3 apt_cron.py
 Hourly cron example:
 
 ```cron
-0 * * * * cd /path/to/cron-albo-pretorio && CRON_TZ=Europe/Rome TZ=Europe/Rome /usr/bin/flock -n /tmp/apt-cron.lock /bin/sh -c '. /etc/apt-cron/albo.env && exec /usr/bin/python3 apt_cron.py' >> cron.log 2>&1
+CRON_TZ=Europe/Rome
+0 * * * * cd /path/to/cron-albo-pretorio && TZ=Europe/Rome /usr/bin/flock -n /tmp/apt-cron.lock /bin/sh -c '. /etc/apt-cron/albo.env && exec /usr/bin/python3 apt_cron.py' >> cron.log 2>&1
 ```
 
 Do not put literal credentials in shell history or crontab lines. The cron command above sources the
@@ -170,7 +170,10 @@ the job, protecting logs, checking that the Telegram bot has the right permissio
   combined with `--refresh-index`.
 - A failed PDF upload leaves the notice fingerprint uncommitted; the next unchanged run retries only
   the missing PDF URLs and never resends the text message.
-- GitHub Actions runs compile and the full test suite on pushes to `main` and pull requests, and refreshes the committed index hourly.
+- Cached PDF links are refreshed when a notice's source metadata changes; unchanged notices reuse their
+  cached links.
+- `.github/workflows/ci.yml` compiles and runs the full test suite on pushes to `main` and pull requests;
+  `.github/workflows/update-index.yml` refreshes the committed index hourly.
 
 ## Tests
 

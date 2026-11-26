@@ -1,7 +1,7 @@
 # 0001 — Hourly acquisition and public metadata contract
 
 - Status: accepted, implemented; archive pagination and publication order amended by [ADR 0008](0008-archive-backfill-and-publication-order.md)
-- Decision record: GitHub issue #5 (open)
+- Decision record: GitHub issue #5 (closed)
 
 ## Context
 
