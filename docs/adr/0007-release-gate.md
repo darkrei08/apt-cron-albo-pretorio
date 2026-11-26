@@ -14,15 +14,16 @@ packaging or ops file:
 - `.github/workflows/update-index.yml` runs hourly and on manual dispatch: it runs
   `apt_cron.py --refresh-index` with `TZ: Europe/Rome` and commits changed `public/index.*` with the
   repository `GITHUB_TOKEN`. It needs no Telegram credentials.
-- `docs/wayfinder-execution-order.md` records "GitHub Actions run inventory: zero runs at
-  discovery time". The master verified with `gh run list -R github.com/darkrei08/apt-cron-albo-pretorio
-  --limit 5 --json databaseId,status,conclusion,headBranch` that no run existed and with
-  `git status --short --branch --untracked-files=all` that `main` was ahead by six at authoring time.
-  Both are time-bound observations; part 2 of the gate must re-check them at release time. Local
-  passing tests were the only CI evidence at that point.
+- Current GitHub Actions evidence includes a successful CI run for checked-in commit
+  `cef13761aed1f33d9847395588763a656e1a8a98` at
+  [run 45844836581](https://github.com/darkrei08/apt-cron-albo-pretorio/actions/runs/45844836581),
+  plus a successful scheduled index refresh for commit `74b425482f2df1063407fa9b10671fb51b9430a0`
+  at [run 45787926316](https://github.com/darkrei08/apt-cron-albo-pretorio/actions/runs/45787926316).
+  These runs cover checked-in commits only; the current worktree has uncommitted changes, so part 2
+  must be rechecked for the exact release commit.
 - Nothing in the repository deploys the Telegram job: the root has no `Dockerfile`,
   `pyproject.toml`, `requirements.txt`, systemd unit, compose file or deploy job. The scheduled
-  Telegram run is described only as a cron example (`README.md:76-83`); the hourly index workflow is
+  Telegram run is described only as a cron example (README "Run" section); the hourly index workflow is
   the only scheduled job the repository owns.
 - Outside this ADR, the word `faibtes` appears in the ticket title in
   `docs/wayfinder-execution-order.md`. No artifact, target, host or environment defines it; item 1
@@ -30,7 +31,7 @@ packaging or ops file:
 - The prerequisite decisions are recorded: secret storage, timezone, schedule ownership, failure
   alerting and overlap protection in ADR 0003, withdrawal and retention in ADR 0004, publication
   boundary in ADR 0005, and format and channel including sign-off in ADR 0006. Private-channel
-  validation (issue #10) passed in the recorded run.
+  validation (issue #10) passed in the historical plain-text run; the current HTML render is pending.
 
 Decisions the operator must make are marked `[INSERT DECISION]` with a recommendation.
 
@@ -40,15 +41,15 @@ The release gate has five parts. All five must be satisfied and recorded; a part
 is not a release.
 
 1. **Decisions closed and approved.** Every `[INSERT DECISION]` in ADRs 0001 through 0007 is
-   replaced with an operator choice, except format sign-off in ADR 0006 item 6, which is satisfied by
-   the recorded result of part 3. Issues #5, #6, #7, #9, #11 and #12 are closed by the operator.
+   replaced with an operator choice. Current HTML format sign-off remains part 3 of this gate; the
+   historical plain-text result does not satisfy it. Issues #5, #6, #7, #9, #11 and #12 are closed by the operator.
    Issue #10 is covered by part 3. *No unresolved placeholder is allowed to survive into production.*
 2. **CI evidence exists on GitHub.** A run of `ci.yml` on `main` or on a pull request target shows
    the compile step and the full test suite green, and the commits carrying the release are pushed
    so that run refers to them. Local test runs do not satisfy this part.
 3. **Private-channel validation passed.** `docs/validation/telegram-private-channel.md` has every
-   core item at PASS or an explicitly accepted FAIL with a named owner, covering plain-text render,
-   official link, in-memory PDF upload, PDF size and caption bound. A NOT RUN / non-applicable
+   core item at PASS or an explicitly accepted FAIL with a named owner, covering the current HTML
+   render, official link, in-memory PDF upload, PDF size and caption bound. A NOT RUN / non-applicable
    disposition with a named owner is allowed only for an item that genuinely cannot apply, such as
    the non-PDF attachment check when no such attachment exists.
 4. **Operational readiness confirmed.** The secret store, host timezone, schedule, failure alert and
@@ -81,11 +82,16 @@ Open operator inputs:
 
 - The gate cannot be passed by code quality alone: three of its five parts depend on operator
   infrastructure and on evidence from GitHub and Telegram that the repository cannot produce.
-- Part 2 passed on GitHub Actions for the final pushed commit.
-- Part 3 passed in the private channel: one notice, its full field set, two PDF documents and bounded
-  captions were observed; the non-PDF attachment check was accepted as non-applicable by the
-  repository operator because no such attachment appeared.
-- Part 1 is complete: all recorded decisions are accepted and format sign-off is accepted.
+- Part 2 passed on GitHub Actions for checked-in commit `cef13761aed1f33d9847395588763a656e1a8a98`
+  ([run 45844836581](https://github.com/darkrei08/apt-cron-albo-pretorio/actions/runs/45844836581));
+  uncommitted worktree changes are not covered by that run.
+- Part 3 has historical evidence for the plain-text format: one notice, its full field set, two PDF
+  documents and bounded captions were observed. Current HTML format sign-off remains pending until
+  the private checklist is rerun; the non-PDF attachment check remains accepted as non-applicable
+  only for the historical notice.
+
+- Recorded decisions are documented, but release status remains HOLD because current HTML format
+  sign-off is pending under part 3.
 - Rollback is limited by design: messages stay published and index history stays in Git, so rollback
   stops future publishing rather than erasing what was already published.
 - If `faibtes` turns out to require packaging (container image, unit file), that work is a new
@@ -96,16 +102,19 @@ Open operator inputs:
 - `.github/workflows/ci.yml`: triggers, Python 3.11, compile step, `unittest discover` step.
 - `.github/workflows/update-index.yml`: hourly and manual dispatch refresh and index commit.
 - Root listing: no `Dockerfile`, `pyproject.toml`, `requirements.txt`, compose file or ops unit.
-- `docs/wayfinder-execution-order.md:24` (ticket title with `faibtes`), `:48` (zero Actions runs),
-  `:50` (remaining blockers).
-- `README.md:76-83` (cron example only), `:104` (nothing sent live, no production schedule
-  installed, one live index refresh observed), `:106-113` (production checks that exist today).
+- `docs/wayfinder-execution-order.md` (historical `faibtes` ticket title) and the current
+  GitHub Actions records [CI run 45844836581](https://github.com/darkrei08/apt-cron-albo-pretorio/actions/runs/45844836581)
+  and [index run 45787926316](https://github.com/darkrei08/apt-cron-albo-pretorio/actions/runs/45787926316).
+- `README.md` "Run" (cron example only), "Download section" (historical private-channel delivery,
+  no production schedule installed, one live index refresh observed) and "Production checks" (the checks that exist today).
 - `docs/adr/0003-production-secret-storage-and-schedule.md`, `0004-withdrawal-and-retention.md`,
   `0005-publication-boundary.md`, `0006-notification-format-and-channel.md` (the decision inputs).
-- `docs/validation/telegram-private-channel.md` (part 3 evidence; core items PASS, non-PDF attachment check accepted non-applicable).
+- `docs/validation/telegram-private-channel.md` (historical part 3 evidence; current HTML validation remains pending, with the non-PDF attachment check accepted non-applicable only for the historical notice).
+- `docs/operations/production-runbook.md` (reproducible operator procedure and recommended protected-path contract; host execution remains unverified).
+- `docs/operations/operator-handoff.md` (separate operator-only commands and evidence records for the protected host; it contains no credentials and records no GO).
 
 ## Not verified
 
-The GitHub Actions checks passed on the final pushed commit. The `update-index` workflow has not run
-on GitHub Actions, and no part of the gate has been evaluated against a production host: the map
-defines the gate, while installation remains a separate operator action.
+The checked-in commit `cef13761aed1f33d9847395588763a656e1a8a98` has a successful CI run
+([45844836581](https://github.com/darkrei08/apt-cron-albo-pretorio/actions/runs/45844836581)), and the
+scheduled `update-index` workflow has a successful run ([45787926316](https://github.com/darkrei08/apt-cron-albo-pretorio/actions/runs/45787926316)). Those runs do not cover the current uncommitted worktree. The current HTML Telegram format has not been revalidated, and no part of the gate has been evaluated against a production host: the map defines the gate, while installation remains a separate operator action.

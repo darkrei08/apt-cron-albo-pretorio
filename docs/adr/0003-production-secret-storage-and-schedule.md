@@ -1,17 +1,17 @@
 # 0003 — Production secret storage and schedule ownership
 
 - Status: accepted
-- Decision record: GitHub issue #9 (open)
+- Decision record: GitHub issue #9 (closed)
 
 ## Context
 
 `apt_cron.py` needs two credentials and one clock, and the repository records none of them:
 
-- `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are read from the environment
-  (`apt_cron.py:418-419`). `README.md:38-48` lists them as required in every mode except
+- `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are read from the environment in `main`
+  (`apt_cron.py`). The README configuration table lists them as required in every mode except
   `--dry-run` and `--refresh-index`, with the note "keep it outside Git". No secret store, file
   permission, rotation procedure or owner is recorded anywhere.
-- The publication-window filter uses `date.today()` (`apt_cron.py:431`), so the "today" that bounds
+- The publication-window filter uses `date.today()` in `main` config assembly, so the "today" that bounds
   `cntDataInizioPubblicazione`/`cntDataFinePubblicazione` is the host's local date. No timezone is
   configured, so a host in UTC and a host in `Europe/Rome` can disagree on the boundary date for up
   to two hours around midnight.
@@ -19,11 +19,10 @@
   `Europe/Rome`) plus the hourly index workflow (`update-index.yml`). No installable unit, timer,
   supervisor or host is named. ADR 0001 §7 states that the schedule is the operator's
   responsibility and installs nothing.
-- Failure handling exists but has no in-script destination: a runtime error prints one redacted line
-  to stderr and exits `1` (`apt_cron.py:453-455`), bad `APT_PAGE_SIZE` exits `2` via `parser.error`
-  (`apt_cron.py:426-428`), and a missing credential (outside `--dry-run` and `--refresh-index`) also
-  exits `2` (`apt_cron.py:419-422`). The chosen deployment adds cron `MAILTO` and a `flock -n` wrapper;
-  the script itself has no lock.
+- Failure handling exists but has no in-script destination: `main` catches a runtime error, prints one
+  redacted line to stderr and exits `1`, a bad `APT_PAGE_SIZE` exits `2` via `parser.error`, and a
+  missing credential (outside `--dry-run` and `--refresh-index`) also exits `2`. The chosen deployment
+  adds cron `MAILTO` and a `flock -n` wrapper; the script itself has no lock.
 
 Operator decisions are recorded below.
 
@@ -41,8 +40,9 @@ Operator decisions are recorded below.
    Base64 is not encryption: an encoded token in the repository or in Git history
    is a leaked token, so base64 (or any other repository-stored encoding) is rejected as a storage
    mechanism and no decryption path exists in the script.
-2. **Timezone.** Accepted: `Europe/Rome`, set explicitly by the schedule (`CRON_TZ` and `TZ` on the
-   cron line, `TZ` in the hourly index workflow), never inherited from an unrecorded host default.
+2. **Timezone.** Accepted: `Europe/Rome`, set explicitly by the schedule: `CRON_TZ=Europe/Rome`
+   is a crontab variable line before the job, `TZ=Europe/Rome` is part of the command environment, and
+   `TZ` is set in the hourly index workflow. It is never inherited from an unrecorded host default.
 3. **Schedule owner and host.** Accepted: the deployment is portable. The hourly cron runs on
    whichever host cloned or installed the repository, and it is managed by whoever can maintain the
    repository; that maintainer is also the failure-alert recipient. No named host or unit file is
@@ -63,13 +63,15 @@ Operator decisions are recorded below.
   values live, the timezone, the schedule, the alert destination and overlap protection are recorded.
 - `date.today()` stays timezone-dependent by design. Choosing `Europe/Rome` as the cron environment
   is sufficient; no code change is implied by this ADR.
-- A failure after the message is sent but before all documents can leave a notice marked published
-  without every PDF: the fingerprint is saved after the message, while each `sent_documents` entry is
-  saved only after that document succeeds (`apt_cron.py:297-317`). The next run does not republish an
-  unchanged notice, so recovery needs a changed notice or manual state handling.
+- A failure after the message is sent but before all documents no longer strands a notice: state
+  stores the sent-message fingerprint separately from the notice fingerprint. The notice fingerprint
+  is committed only after every PDF succeeds, so an unchanged next run retries only the missing
+  `sent_documents` URLs and sends no second text message. A legacy state seeds the sent-message
+  fingerprint only for notices whose document was already uploaded, so migration neither duplicates
+  text messages nor uploads documents for acts that were only seeded.
 - Recording a secret store here does not authorize any commit of credentials: `state/` and
-  `cron.log` are ignored (`.gitignore`), and the local env file is ignored as well unless it is the
-  committed `.env.example` template. Files loaded by the script are plain text on disk, so the
+  `cron.log` are ignored (`.gitignore`), and `.env` and `.env.*` are ignored as well; no env template is
+  committed. Files loaded by the script are plain text on disk, so the
   permission and ownership of the file remain the operator's responsibility.
 
 ## Evidence
@@ -78,8 +80,8 @@ Operator decisions are recorded below.
   config assembly in `main` (`date.today()` included), error redaction in `redact_credentials`,
   exit codes for a missing credential, a bad `APT_PAGE_SIZE` and a runtime failure.
 - `.gitignore`: `.env` and `.env.*` ignored; no credential template is committed.
-- `README.md`: configuration table (`:38-48`), protected environment file, hourly cron example and
-  the `--refresh-index` command (`:67-88`), production checks (`:106-113`).
+- `README.md`: configuration table, protected environment file, hourly cron example, the
+  `--refresh-index` command and the production checks sections.
 - `.github/workflows/update-index.yml`: hourly index refresh with `TZ: Europe/Rome`.
 - `docs/adr/0001-hourly-acquisition-and-metadata-contract.md` §7 (operator owns the schedule).
 - `docs/wayfinder-execution-order.md` row 4 (this ticket blocked on the same four choices).

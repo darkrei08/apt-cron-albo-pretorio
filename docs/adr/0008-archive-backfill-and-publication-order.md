@@ -1,7 +1,7 @@
 # 0008 — Archived-acts backfill and oldest-to-newest publication
 
 - Status: accepted, implemented
-- Decision record: this file; no tracker issue yet
+- Decision record: Wayfinder map #14, tickets #19 and #20
 
 ## Context
 
@@ -9,8 +9,8 @@ ADR 0001 fixes one page of the current publication window per run: a single read
 `POST APT_SOURCE_URL?page=0&size=APT_PAGE_SIZE` whose criteria include
 `cntDataFinePubblicazione >= today` and `cntDataInizioPubblicazione <= today`. The registry holds far
 more than a window: the same query without the two date criteria returns the whole published history
-(739 acts at the time of writing) over several pages, while the `sort` query parameters are ignored
-by the source. The source orders results newest first, and asking for a page past `totalPages`
+(748 acts in the current live probe) over eight pages at size 100, while the `sort` query parameters
+are ignored by the source. The source orders results newest first, and asking for a page past `totalPages`
 answers HTTP 404 rather than an empty page.
 
 The channel currently receives new and changed acts in source order, newest first, so within one run
@@ -74,9 +74,10 @@ the archived history must be publishable in one pass.
 
 ## Not verified
 
-No Telegram message was sent while implementing this. The archive read was exercised against the
-live source with a credential-free probe: the archive fetch returned 739 acts over its pages (newest
-`2026-11-25`, oldest `2024-05-03`), `publication_order` reversed them to oldest first, and the
-current-window read still returned one page with 14 acts. The backfill publish path itself is
-exercised only against fake transports in the unit suite, and the full-archive attachment cost was
-not measured end to end.
+No Telegram message was sent while implementing this. A credential-free live probe on 2026-11-26
+with `APT_PAGE_SIZE=100` requested eight archive pages and returned 748 notices, 748 unique IDs and
+no duplicate IDs, with years 2024-2026 and publication dates from 2024-05-03 through 2026-11-26.
+`totalPages` reported 8 on every response. The `--backfill --dry-run` path also returned 748 notices
+without writing state or contacting Telegram. The backfill publish path itself is exercised only
+against fake transports in the unit suite; a real full-archive publish remains intentionally
+operator-controlled.
