@@ -104,7 +104,7 @@ Operator decisions are recorded below.
 - `apt_cron.py`: `NOTICE_FIELDS` `:21-63`, `FIELD_LABELS` `:65-107`, `parse_source_response`
   `:110-114`, `fingerprint` `:146-148`, `INDEX_FIELDS` `:263`, `_field_rows` `:269-275`,
   `build_index` `:278-279`, `write_index` `:282-331`, `refresh_index` `:370-373`, `document_caption`
-  `:426-430`, `MESSAGE_IDENTITY_FIELDS` `:434`, `_bounded` `:437-448`, `format_message`
+  `:426-430`, `_bounded`, `format_message`
   `:451-469`, `--index-dir` default `:580-581`.
 - `.github/workflows/update-index.yml`: hourly and manual dispatch, `TZ: Europe/Rome`, commits only
   `public/index.json`, `public/index.md` and `public/index.html`.

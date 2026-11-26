@@ -10,13 +10,21 @@ The Wayfinder map is [APT public notices crawler and notification plan](https://
 2. Extracts every public field the register exposes for an act: 41 source keys covering title, category, sector, publication dates, year, notice number, status and the remaining register fields, excluding only internal account, login, audit and responsible-person keys.
 3. Reads official PDF links from the source attachment endpoint and caches them in local state.
 4. Compares SHA-256 fingerprints with local state.
-5. Sends a plain-text message with the official links, then uploads each official PDF for new or changed notices: the bytes are fetched into memory and posted in a multipart `sendDocument` body, bounded at 50 MB and never written to disk. Each PDF URL is sent once; the document caption identifies the act number and year.
+5. Sends a short Telegram HTML message with the official links, then uploads each official PDF for new or changed notices: the bytes are fetched into memory and posted in a multipart `sendDocument` body, bounded at 50 MB and never written to disk. Each PDF URL is sent once; the document caption identifies the act number and year.
 6. Regenerates `public/index.json`, `public/index.md` and `public/index.html` from the same published fields.
 7. Saves state incrementally after each successful publish.
 8. A scheduled GitHub Actions workflow refreshes the index hourly and commits only changed `public/index.*` files.
 
 Messages are always published oldest to newest, so within one run the newest act is the last message in
 the chat. The index keeps the source order, newest first.
+
+The message is sent with `parse_mode` `HTML` ([ADR 0009](docs/adr/0009-readable-telegram-act-message.md)).
+A bold headline, the underlined act number and year, the title, the publication and expiry dates, the
+document date when the source has one, the category and sector hashtags, the status and the labelled
+official and PDF links are visible. Every other non-empty public field sits in an expandable
+`<blockquote>`, so the message stays short without dropping a field. When the source has no expiry
+date the quote says `Scadenza: non nota`. Every dynamic value is HTML-escaped, and the rendered HTML is
+bounded to 4096 characters.
 
 The first run seeds state from the current source without publishing. This avoids an initial channel flood.
 
@@ -146,7 +154,8 @@ the job, protecting logs, checking that the Telegram bot has the right permissio
 
 - `APT_PAGE_SIZE` must be a positive integer; invalid values exit with status 2.
 - Runtime failures print a single redacted line, so `TELEGRAM_BOT_TOKEN` is not written to logs.
-- Telegram text is bounded to 4096 characters by shortening the widest lines when a notice carries long values, so no published field can exceed the limit and no label is lost to a hard cut.
+- Telegram HTML is bounded to 4096 characters; the expandable quote is clipped and, only if the visible part alone overflows, its trailing lines are dropped. Tags stay balanced, so Telegram accepts the message.
+- Every dynamic value is escaped with `html.escape(..., quote=True)` before it reaches the HTML message.
 - Document captions state the act number and year and are bounded to 1024 characters.
 - `--refresh-index` needs no Telegram credentials, writes no state and sends nothing.
 - `--backfill` reads the whole archive page by page, publishes oldest to newest, writes no index and
@@ -161,4 +170,4 @@ Run the full suite:
 python3 -m unittest discover -s tests -v
 ```
 
-The tests use local fixtures and fake transports; they do not contact APT Basilicata or Telegram. They cover the published outputs (Telegram text, captions, index files), the multipart document upload and its 50 MB bound, the exact included and excluded field sets, the unchanged dedupe behavior, the credential-free refresh path, the archive criteria and pagination, the oldest-to-newest publication order and the `--backfill` path.
+The tests use local fixtures and fake transports; they do not contact APT Basilicata or Telegram. They cover the published outputs (Telegram HTML, captions, index files), the exact message layout, HTML escaping of hostile values, the unknown-expiry note, the multipart document upload and its 50 MB bound, the exact included and excluded field sets, the unchanged dedupe behavior, the credential-free refresh path, the archive criteria and pagination, the oldest-to-newest publication order and the `--backfill` path.

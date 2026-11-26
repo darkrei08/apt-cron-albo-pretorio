@@ -1,16 +1,17 @@
 # 0006 — Notification format and channel
 
-- Status: accepted
+- Status: accepted; superseded for message formatting by [ADR 0009](0009-readable-telegram-act-message.md)
 - Decision record: GitHub issue #7 (closed after issues #11 and #6)
 
 ## Context
 
 One format function and one destination exist today.
 
-**Format.** `format_message` (`apt_cron.py:451-469`) builds plain text with no `parse_mode` (the
-string `parse_mode` appears nowhere in `apt_cron.py` or the tests), so Telegram renders it verbatim:
+**Format.** The plain-text message recorded here has been replaced by the Telegram HTML message of
+ADR 0009. The description below is the state this ADR accepted and the reason it did; the channel and
+caption decisions in it still stand.
 
-The message is a sequence of plain-text lines:
+The message was a sequence of plain-text lines with no `parse_mode`:
 
 - a headline distinguishing a new notice from an updated notice;
 - identity lines for publication date, title, category hashtag, sector hashtag, act number and year,
@@ -58,10 +59,11 @@ Decisions the operator must make are marked `[INSERT DECISION]` with a recommend
 
 ## Decision
 
-1. **Keep the current plain text as the final format.** Accepted: plain text, no
+1. **Plain text was the final format at the time.** Accepted: plain text, no
    `parse_mode`/HTML/Markdown. Plain text needs no escaping, cannot break on a value containing `*`,
    `_` or `<`, is read linearly by screen readers, and keeps the official link before the optional
-   PDF line.
+   PDF line. Superseded for formatting by ADR 0009: the operator chose a Telegram HTML layout after
+   the plain-text message proved too flat to read.
 2. **Accessibility detail.** Accepted: the `label: value` line format with the headline first,
    followed by identity fields (date, title, category, sector, act, status, official link), then one
    labelled line per remaining non-empty published field, then optional PDF link lines.
@@ -71,10 +73,11 @@ Decisions the operator must make are marked `[INSERT DECISION]` with a recommend
 3. **Hashing and casing conventions.** Accepted: `Categoria: #<hashtag>` and `Settore: #<hashtag>`
    exactly as generated, including the ASCII transliteration, because users build a search habit on
    them.
-4. **Final channel.** Accepted: one Telegram channel, plain text without `parse_mode`, promoted from
-   the private test channel validated in `docs/validation/telegram-private-channel.md`. One channel is
+4. **Final channel.** Accepted and still valid: one Telegram channel, promoted from the private test
+   channel validated in `docs/validation/telegram-private-channel.md`. One channel is
    a deliberate limit: routing by category would multiply the publication surfaces that ADR 0005 has
-   to govern.
+   to govern. The message is now sent with `parse_mode` `HTML` (ADR 0009); the channel choice is
+   unchanged.
 5. **Caption bound.** Accepted: document captions identify the act by number and year and are capped
    at 1024 characters, preserving the fixed caption prefix. The caption no longer depends on the
    title, so a long title cannot trigger the bound; the cap stays as a guard and as a regression test
@@ -85,12 +88,12 @@ Decisions the operator must make are marked `[INSERT DECISION]` with a recommend
 
 ## Consequences
 
-- Choosing plain text fixes the format contract: any future rich formatting is a new decision. The
-  4096-character bound is now a per-line truncation of the widest lines rather than a hard cut, so the
-  message stays readable and under the limit even when a source value is long.
-- The message grows with the number of filled fields: a typical live act renders 15-20 lines (about
-  1200-1400 characters), not 8. Every extra line is one more field a reader can search; the trade-off
-  is a longer notification and no field-level suppression other than an empty value.
+- Choosing plain text fixed the format contract; that contract is now ADR 0009. The 4096-character
+  bound is still enforced, now on the rendered HTML: the visible part drops whole trailing lines and
+  the expandable quote is clipped, so the message stays readable and under the limit even when a
+  source value is long.
+- The message no longer grows with the number of filled fields: the fields a reader acts on are
+  visible and the rest collapse into one expandable quote.
 - The caption is independent of the source title, so a long title can no longer be rejected by
   Telegram after the news message and state write have already succeeded. The private-channel
   checklist still needs to confirm that the act-number caption renders acceptably in a real client.
@@ -98,6 +101,10 @@ Decisions the operator must make are marked `[INSERT DECISION]` with a recommend
   exactly one destination to consider.
 
 ## Evidence
+
+Line numbers and test names below are those of the tree this ADR was accepted on. The format symbols
+(`format_message`, `_bounded`, `MESSAGE_IDENTITY_FIELDS`, `publish_message` `parse_mode`) and the format
+tests moved to ADR 0009; the caption and channel symbols are unchanged.
 
 - `apt_cron.py`: `format_message` `:451-469`, `TELEGRAM_TEXT_LIMIT` `:422`,
   `TELEGRAM_CAPTION_LIMIT` `:423`, `document_caption` `:426-430`, `_bounded` `:437-448`,

@@ -148,8 +148,12 @@ class ParseSourceResponseTest(unittest.TestCase):
         self.assertNotIn("ALSO NOT IN OUTPUT", json.dumps(notices))
 
 
+def quoted_part(message):
+    return message.split(apt_cron.QUOTE_OPEN, 1)[1].split(apt_cron.QUOTE_CLOSE, 1)[0]
+
+
 class FormatMessageTest(unittest.TestCase):
-    def test_formats_plain_text_with_searchable_fields_and_official_link(self):
+    def test_formats_a_readable_html_message(self):
         notice = first_notice()
 
         message = apt_cron.format_message(
@@ -161,15 +165,15 @@ class FormatMessageTest(unittest.TestCase):
             message,
             "\n".join(
                 [
-                    "Nuovo atto APT Basilicata",
-                    "Data: 25/11/2026",
-                    "Titolo: Affidamento diretto per la sala espositiva",
-                    "Categoria: #Delibera_del_Direttore_Generale",
-                    "Settore: #UFFICIO_AMMINISTRAZIONE",
-                    "Atto: 244/2026",
-                    "Stato: PUBBLICATO",
-                    "Link: https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/791962",
-                    "Scade il: 2026-12-10",
+                    "<b>Nuovo atto APT Basilicata</b>",
+                    "<u>Atto 244/2026</u>",
+                    "<b>Titolo:</b> Affidamento diretto per la sala espositiva",
+                    "<b>Pubblicato il:</b> 25/11/2026",
+                    "<b>Scade il:</b> 10/12/2026",
+                    "#Delibera_del_Direttore_Generale #UFFICIO_AMMINISTRAZIONE",
+                    "<b>Stato:</b> PUBBLICATO",
+                    '<a href="https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/791962">Atto ufficiale</a>',
+                    "<blockquote expandable>ID: 791962</blockquote>",
                 ]
             ),
         )
@@ -186,18 +190,68 @@ class FormatMessageTest(unittest.TestCase):
             notice, "https://example.test/albo-pretorio/dettaglio"
         )
 
-        self.assertIn("Titolo: Affidamento diretto per la sala espositiva", message)
-        self.assertIn("Settore: #UFFICIO_AMMINISTRAZIONE", message)
+        quote = quoted_part(message)
+        self.assertIn("Titolo:</b> Affidamento diretto per la sala espositiva", message)
+        self.assertIn("#UFFICIO_AMMINISTRAZIONE", message)
         for name in apt_cron.NOTICE_FIELDS:
-            if name in apt_cron.MESSAGE_IDENTITY_FIELDS:
+            if name in apt_cron.MESSAGE_MAIN_FIELDS:
                 continue
-            self.assertIn(f"{apt_cron.FIELD_LABELS[name]}: {notice[name]}", message)
-        self.assertIn("https://example.test/documento.pdf", message)
-        self.assertIn("https://example.test/allegato.pdf", message)
+            self.assertIn(f"{apt_cron.FIELD_LABELS[name]}: {notice[name]}", quote)
+        self.assertIn('href="https://example.test/documento.pdf">PDF ufficiale</a>', message)
+        self.assertIn('href="https://example.test/allegato.pdf">Allegato PDF</a>', message)
+        self.assertNotIn("Scadenza: non nota", message)
         for name in EXCLUDED_SOURCE_FIELDS:
             self.assertNotIn(name, message)
         self.assertNotIn("PRIVATE", message)
         self.assertLessEqual(len(message), apt_cron.TELEGRAM_TEXT_LIMIT)
+
+    def test_escapes_every_dynamic_value(self):
+        notice = first_notice()
+        notice.update(
+            title='Affidamento <b>&"x"</b>',
+            status="<script>",
+            cntNumeroGara='gara <&"1">',
+            detail_url='https://example.test/dettaglio?a=1&b="2"',
+        )
+
+        message = apt_cron.format_message(notice, "https://example.test/dettaglio")
+
+        self.assertIn(
+            "<b>Titolo:</b> Affidamento &lt;b&gt;&amp;&quot;x&quot;&lt;/b&gt;", message
+        )
+        self.assertIn("<b>Stato:</b> &lt;script&gt;", message)
+        self.assertIn("Numero gara: gara &lt;&amp;&quot;1&quot;&gt;", message)
+        self.assertIn(
+            'href="https://example.test/dettaglio?a=1&amp;b=&quot;2&quot;"', message
+        )
+        self.assertNotIn("<script>", message)
+        self.assertNotIn('"x"</b>', message)
+
+    def test_states_an_unknown_expiry_inside_the_quote(self):
+        notice = first_notice()
+        notice.update(expires=None, cntNumeroGara="123")
+
+        message = apt_cron.format_message(notice, "https://example.test/dettaglio")
+
+        self.assertNotIn("Scade il", message)
+        self.assertEqual(
+            quoted_part(message), "Scadenza: non nota\nID: 791962\nNumero gara: 123"
+        )
+
+    def test_keeps_the_document_date_when_the_source_provides_it(self):
+        notice = first_notice()
+        notice["cntDataDocumentoOrigine"] = "2026-11-20"
+
+        message = apt_cron.format_message(notice, "https://example.test/dettaglio")
+
+        self.assertIn("<b>Documento del:</b> 20/11/2026", message)
+        self.assertNotIn("Data documento di origine:", message)
+
+        notice["cntDataDocumentoOrigine"] = "non una data"
+        self.assertIn(
+            "<b>Documento del:</b> non una data",
+            apt_cron.format_message(notice, "https://example.test/dettaglio"),
+        )
 
 
 class FakeTransport:
@@ -344,7 +398,7 @@ class ArchiveQueryTest(unittest.TestCase):
 
 
 class PublishMessageTest(unittest.TestCase):
-    def test_posts_plain_text_to_telegram(self):
+    def test_posts_html_to_telegram(self):
         transport = FakeTransport({"ok": True, "result": {"message_id": 1}})
 
         result = apt_cron.publish_message(
@@ -359,7 +413,7 @@ class PublishMessageTest(unittest.TestCase):
         )
         self.assertEqual(
             transport.calls[0]["payload"],
-            {"chat_id": "@test_channel", "text": "test text"},
+            {"chat_id": "@test_channel", "text": "test text", "parse_mode": "HTML"},
         )
 
     def test_rejects_a_telegram_error(self):
@@ -561,8 +615,17 @@ class PublicationOrderTest(unittest.TestCase):
 
         self.assertEqual(stats["published"], 3)
         self.assertEqual(
-            [line for message in messages for line in message.splitlines() if line.startswith("Data: ")],
-            ["Data: 20/11/2026", "Data: 24/11/2026", "Data: 25/11/2026"],
+            [
+                line
+                for message in messages
+                for line in message.splitlines()
+                if line.startswith("<b>Pubblicato il:</b> ")
+            ],
+            [
+                "<b>Pubblicato il:</b> 20/11/2026",
+                "<b>Pubblicato il:</b> 24/11/2026",
+                "<b>Pubblicato il:</b> 25/11/2026",
+            ],
         )
 
 
@@ -644,8 +707,17 @@ class BackfillTest(unittest.TestCase):
         self.assertFalse(index_exists)
         self.assertEqual(len(messages), 3)
         self.assertEqual(
-            [line for message in messages for line in message.splitlines() if line.startswith("Data: ")],
-            ["Data: 01/09/2026", "Data: 20/11/2026", "Data: 25/11/2026"],
+            [
+                line
+                for message in messages
+                for line in message.splitlines()
+                if line.startswith("<b>Pubblicato il:</b> ")
+            ],
+            [
+                "<b>Pubblicato il:</b> 01/09/2026",
+                "<b>Pubblicato il:</b> 20/11/2026",
+                "<b>Pubblicato il:</b> 25/11/2026",
+            ],
         )
         self.assertFalse([line for message in messages for line in message.splitlines() if line.startswith("PDF: ")])
         self.assertEqual(documents, [])
@@ -1280,6 +1352,12 @@ class ProductionConfigTest(unittest.TestCase):
 
         self.assertLessEqual(len(message), apt_cron.TELEGRAM_TEXT_LIMIT)
         self.assertIn("Titolo:", message)
+        for tag in ("b", "u", "blockquote", "a"):
+            self.assertEqual(
+                message.count(f"<{tag}>") + message.count(f"<{tag} "),
+                message.count(f"</{tag}>"),
+                tag,
+            )
 
 
 if __name__ == "__main__":

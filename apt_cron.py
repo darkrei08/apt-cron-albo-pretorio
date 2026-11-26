@@ -116,7 +116,12 @@ def parse_source_response(response):
 
 
 def _display_date(value):
-    return date.fromisoformat(value).strftime("%d/%m/%Y") if value else ""
+    if not value:
+        return ""
+    try:
+        return date.fromisoformat(str(value)).strftime("%d/%m/%Y")
+    except ValueError:
+        return str(value)
 
 
 def _hashtag(value):
@@ -443,7 +448,9 @@ def run_once(transport, config):
 
 
 def publish_message(transport, telegram_url, chat_id, text):
-    response = transport.request("POST", telegram_url, {"chat_id": chat_id, "text": text})
+    response = transport.request(
+        "POST", telegram_url, {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
+    )
     if not response.get("ok"):
         raise RuntimeError(response.get("description") or "telegram error")
     return response["result"]
@@ -460,43 +467,99 @@ def document_caption(notice):
     return caption
 
 
-# Fields rendered as the identity block of the message; every other public field follows as a line.
-MESSAGE_IDENTITY_FIELDS = ("id", "published", "title", "category", "sector", "number", "year", "status")
+# Fields rendered as the visible part of the message; every other public field goes inside the quote.
+MESSAGE_MAIN_FIELDS = (
+    "published",
+    "title",
+    "category",
+    "sector",
+    "year",
+    "number",
+    "status",
+    "expires",
+    "cntDataDocumentoOrigine",
+)
+MESSAGE_VALUE_LIMIT = 500
+MESSAGE_URL_LIMIT = 300
+QUOTE_OPEN = "<blockquote expandable>"
+QUOTE_CLOSE = "</blockquote>"
 
 
-def _bounded(lines, limit):
-    message = "\n".join(lines)
-    while len(message) > limit:
-        widest = max(range(len(lines)), key=lambda index: len(lines[index]))
-        # shortcut: a label longer than 13 characters is cut when the pressure is extreme, upgrade
-        # to a per-line budget only if labels start carrying the meaning of the value.
-        if len(lines[widest]) <= 16:
-            return message[: limit - 3] + "..."
-        keep = max(16, len(lines[widest]) - (len(message) - limit))
-        lines[widest] = lines[widest][: keep - 3] + "..."
-        message = "\n".join(lines)
-    return message
+def _clip(text, size):
+    if len(text) <= size:
+        return text
+    if size <= 3:
+        return ""
+    clipped = text[: size - 3] + "..."
+    cut = clipped.rfind("&")
+    if cut > clipped.rfind(";"):
+        # An ampersand only comes from an escaped value, so it starts an entity that must stay whole.
+        clipped = clipped[:cut] + "..."
+    return clipped
+
+
+def _esc(value, limit=MESSAGE_VALUE_LIMIT):
+    text = "" if value is None else str(value)
+    # Escaping first, then clipping keeps a long or hostile value from breaking the message bound.
+    return _clip(html.escape(text, quote=True), limit)
+
+
+def _link(url, label):
+    return f'<a href="{_esc(url, MESSAGE_URL_LIMIT)}">{label}</a>'
+
+
+def _bounded(head, quote):
+    def render(lines, body):
+        parts = list(lines)
+        if body:
+            parts.append(f"{QUOTE_OPEN}{body}{QUOTE_CLOSE}")
+        return "\n".join(parts)
+
+    message = render(head, quote)
+    if len(message) <= TELEGRAM_TEXT_LIMIT:
+        return message
+    # Whole lines keep every tag balanced, so a message that is still too long loses its last lines.
+    overhead = len(QUOTE_OPEN) + len(QUOTE_CLOSE) + 1
+    while len(head) > 1 and len(render(head, "")) + overhead > TELEGRAM_TEXT_LIMIT:
+        head.pop()
+    budget = TELEGRAM_TEXT_LIMIT - len(render(head, "")) - overhead
+    return render(head, _clip(quote, budget))
 
 
 def format_message(notice, detail_base, updated=False):
     headline = "Atto aggiornato APT Basilicata" if updated else "Nuovo atto APT Basilicata"
-    lines = [
-        headline,
-        f"Data: {_display_date(notice.get('published'))}",
-        f"Titolo: {notice.get('title') or ''}",
-        f"Categoria: #{_hashtag(notice.get('category'))}",
-        f"Settore: #{_hashtag(notice.get('sector'))}",
-        f"Atto: {notice.get('number') or ''}/{notice.get('year') or ''}",
-        f"Stato: {notice.get('status') or ''}",
-        f"Link: {notice.get('detail_url') or detail_base.rstrip('/') + '/' + str(notice.get('id') or '')}",
+    head = [
+        f"<b>{headline}</b>",
+        f"<u>Atto {_esc(notice.get('number'))}/{_esc(notice.get('year'))}</u>",
     ]
-    for label, value in _field_rows(notice, MESSAGE_IDENTITY_FIELDS):
-        lines.append(f"{label}: {value}")
+    if notice.get("title"):
+        head.append(f"<b>Titolo:</b> {_esc(notice['title'])}")
+    if notice.get("published"):
+        head.append(f"<b>Pubblicato il:</b> {_esc(_display_date(notice['published']))}")
+    if notice.get("expires"):
+        head.append(f"<b>Scade il:</b> {_esc(_display_date(notice['expires']))}")
+    if notice.get("cntDataDocumentoOrigine"):
+        head.append(
+            f"<b>Documento del:</b> {_esc(_display_date(notice['cntDataDocumentoOrigine']))}"
+        )
+    tags = [f"#{_hashtag(notice.get('category'))}", f"#{_hashtag(notice.get('sector'))}"]
+    tags = [tag for tag in tags if len(tag) > 1]
+    if tags:
+        head.append(" ".join(_esc(tag) for tag in tags))
+    if notice.get("status"):
+        head.append(f"<b>Stato:</b> {_esc(notice['status'])}")
+    detail_url = notice.get("detail_url") or f"{detail_base.rstrip('/')}/{notice.get('id') or ''}"
+    head.append(_link(detail_url, "Atto ufficiale"))
     if notice.get("document_url"):
-        lines.append(f"PDF: {notice['document_url']}")
+        head.append(_link(notice["document_url"], "PDF ufficiale"))
     for url in notice.get("attachment_urls") or []:
-        lines.append(f"Allegato PDF: {url}")
-    return _bounded(lines, TELEGRAM_TEXT_LIMIT)
+        head.append(_link(url, "Allegato PDF"))
+    quote = [
+        f"{_esc(label)}: {_esc(value)}" for label, value in _field_rows(notice, MESSAGE_MAIN_FIELDS)
+    ]
+    if not notice.get("expires"):
+        quote.insert(0, "Scadenza: non nota")
+    return _bounded(head, "\n".join(quote))
 
 
 def multipart_body(fields, filename, content):
