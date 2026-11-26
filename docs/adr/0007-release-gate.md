@@ -1,6 +1,6 @@
 # 0007 — Release gate for the faibtes production rollout
 
-- Status: defined; validation and CI evidence recorded, production installation still pending
+- Status: HOLD; parts 1-2 PASS, parts 3-5 blocked by missing rotated credentials and unexecuted operator evidence
 - Decision record: GitHub issue #13 (closed after issues #9, #10, #11 and #12)
 
 ## Context
@@ -112,9 +112,9 @@ Open operator inputs:
 - `docs/validation/telegram-private-channel.md` (historical part 3 evidence; current HTML validation remains pending, with the non-PDF attachment check accepted non-applicable only for the historical notice).
 - `docs/operations/production-runbook.md` (reproducible operator procedure and recommended protected-path contract; host execution remains unverified).
 - `docs/operations/operator-handoff.md` (separate operator-only commands and evidence records for the protected host; it contains no credentials and records no GO).
+- `docs/validation/production-rollout-2026-11-26.md` (operator sign-off, exact release installation, dry-run archive counts, credential blocker and current part-by-part gate status).
 
 ## Not verified
 
-The checked-in commit `cef13761aed1f33d9847395588763a656e1a8a98` has a successful CI run
-([45844836581](https://github.com/darkrei08/apt-cron-albo-pretorio/actions/runs/45844836581)), and the
-scheduled `update-index` workflow has a successful run ([45787926316](https://github.com/darkrei08/apt-cron-albo-pretorio/actions/runs/45787926316)). Those runs do not cover the current uncommitted worktree. The current HTML Telegram format has not been revalidated, and no part of the gate has been evaluated against a production host: the map defines the gate, while installation remains a separate operator action.
+The release commit `979a03d756673da9ba38e4605e5062d0a8d74da9` has a successful CI run
+([45904384468](https://github.com/darkrei08/apt-cron-albo-pretorio/actions/runs/45904384468)) and is installed at `/opt/apt-cron-pretorio` on host `herdr`. Parts 1 and 2 are PASS. Parts 3-5 remain BLOCKED: rotated `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are absent from the protected environment file, so no real HTML validation, publication, manual production run, cron activation, 24-hour observation or rollback rehearsal has occurred. The archive dry run found 748 notices with 725 attachment errors and sent nothing. No GO is claimed; see `docs/validation/production-rollout-2026-11-26.md`.
