@@ -39,7 +39,7 @@ No third-party Python package is required.
 
 | Variable | Required | Default | Purpose |
 | --- | --- | --- | --- |
-| `TELEGRAM_BOT_TOKEN` | yes, unless `--dry-run` or `--refresh-index` | none | Bot token; keep it outside Git |
+| `TELEGRAM_BOT_TOKEN` | yes, unless `--dry-run` or `--refresh-index` | none | Bot token; only from the environment or a gitignored env file |
 | `TELEGRAM_CHAT_ID` | yes, unless `--dry-run` or `--refresh-index` | none | Channel or chat identifier |
 | `APT_SOURCE_URL` | no | `https://siopi.publisys.it/kapi-aptbasilicata/api/pap/filter` | API base URL, without query string |
 | `APT_NATURE_ID` | no | `200152` | Notice category identifier from the source |
@@ -50,6 +50,14 @@ No third-party Python package is required.
 | `APT_STATE_PATH` | no | `state/notices.json` | File holding fingerprints, cached PDF links and sent document URLs |
 
 The generated `state/` directory and Telegram credentials are not committed.
+
+Configuration can come from a local `KEY=VALUE` file instead of the shell environment. Before
+reading any setting the script loads `$APT_ENV_FILE`, or `.env` in the repository root when that
+variable is unset, and it never overrides a variable that is already set, so a real environment
+value always wins. Blank lines, `#` comments, an optional `export ` prefix and surrounding quotes are
+accepted. `.env` and `.env.*` are gitignored; only `.env.example`, which holds variable names and
+placeholders, is committed. Do not store a base64-encoded credential: base64 is not encryption, and
+an encoded token in the repository or in Git history is a leaked token.
 
 ## Run
 
@@ -66,7 +74,18 @@ is the path the hourly workflow uses:
 python3 apt_cron.py --refresh-index
 ```
 
-Publish new or changed notices from a protected environment file readable only by the service user:
+Publish new or changed notices with a local credentials file inside the repository. The script
+loads it itself, so no shell sourcing is needed and no credential reaches shell history:
+
+```sh
+touch .env
+chmod 600 .env
+$EDITOR .env
+python3 apt_cron.py
+```
+
+Publishing from a protected environment file outside the repository, readable only by the service
+user, is equally supported. Point `APT_ENV_FILE` at it to have the script load it:
 
 ```sh
 set -a
@@ -81,8 +100,11 @@ Hourly cron example:
 0 * * * * cd /path/to/cron-albo-pretorio && CRON_TZ=Europe/Rome TZ=Europe/Rome /usr/bin/flock -n /tmp/apt-cron.lock /bin/sh -c '. /etc/apt-cron/albo.env && exec /usr/bin/python3 apt_cron.py' >> cron.log 2>&1
 ```
 
-Do not put literal credentials in shell history or crontab lines. Set `CRON_TZ` and `TZ` to
-`Europe/Rome` as in the example, and set `MAILTO` so a failed run reaches the maintainer.
+Do not put literal credentials in shell history or crontab lines. The cron command above sources the
+file outside the repository; with a repository-local `.env` the `/bin/sh -c` wrapper can simply be
+`exec /usr/bin/python3 apt_cron.py`, because the script loads `.env` from its own directory. Set
+`CRON_TZ` and `TZ` to `Europe/Rome` as in the example, and set `MAILTO` so a failed run reaches the
+maintainer.
 
 The committed index is refreshed by `.github/workflows/update-index.yml` every hour and on manual
 dispatch. The workflow needs no Telegram credentials: it runs `apt_cron.py --refresh-index` and
@@ -101,7 +123,9 @@ repository `GITHUB_TOKEN`.
 
 **What the project does:** reads public metadata and official PDF links, publishes a short message followed by the PDF documents, records fingerprints and sent URLs, and regenerates the published index from the same allowed fields. It does not copy official documents into the repository or into a local archive.
 
-**What the operator is responsible for:** providing credentials through the protected environment file, choosing the state and index paths, scheduling the job, protecting logs, checking that the Telegram bot has the right permissions, monitoring failures, and answering data-rights requests. Withdrawal is not automated: a withdrawn notice stays in the channel as the permanent record and leaves the index on the next hourly refresh (ADR 0004). Publishing a key that the allowlist excludes (an internal account, login, audit or responsible-person field) would require a new Wayfinder decision; every other public field of an act is already published. After a change to the field set, reseed state once as described above.
+**What the operator is responsible for:** providing credentials through a gitignored local `.env`, an
+`APT_ENV_FILE` file, or the protected environment file, choosing the state and index paths, scheduling
+the job, protecting logs, checking that the Telegram bot has the right permissions, monitoring failures, and answering data-rights requests. Withdrawal is not automated: a withdrawn notice stays in the channel as the permanent record and leaves the index on the next hourly refresh (ADR 0004). Publishing a key that the allowlist excludes (an internal account, login, audit or responsible-person field) would require a new Wayfinder decision; every other public field of an act is already published. After a change to the field set, reseed state once as described above.
 
 **Not verified:** no live Telegram message or document was sent and no production cron schedule was installed. The `--refresh-index` path was exercised against the live source (exit code `0`, 14 notices, 44 published keys per notice, index files written, no state file); the hourly workflow itself has never run on GitHub Actions. Automated tests use simulated HTTP on both sides. Long-term source availability, Telegram document size acceptance and client rendering should be checked in the destination channel before public use.
 

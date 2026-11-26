@@ -698,6 +698,37 @@ class RefreshIndexTest(unittest.TestCase):
         self.assertFalse([call for call in transport.calls if "api.telegram.org" in call["url"]])
 
 
+class EnvFileTest(unittest.TestCase):
+    def test_env_file_supplies_configuration_before_argparse(self):
+        with tempfile.TemporaryDirectory() as directory:
+            env_file = Path(directory) / "albo.env"
+            env_file.write_text("# local credentials\nexport APT_PAGE_SIZE=bogus\n", encoding="utf-8")
+            with mock.patch.dict(os.environ, {"APT_ENV_FILE": str(env_file)}), mock.patch(
+                "sys.stderr", new_callable=io.StringIO
+            ) as stderr:
+                os.environ.pop("APT_PAGE_SIZE", None)
+                with self.assertRaises(SystemExit) as exit_code:
+                    apt_cron.main(["--dry-run"])
+
+        self.assertEqual(exit_code.exception.code, 2)
+        self.assertIn("APT_PAGE_SIZE must be a positive integer", stderr.getvalue())
+
+    def test_existing_environment_value_wins_over_the_env_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            env_file = Path(directory) / "albo.env"
+            env_file.write_text("APT_PAGE_SIZE=7\nAPT_INDEX_DIR=from-file\n", encoding="utf-8")
+            with mock.patch.dict(
+                os.environ,
+                {"APT_ENV_FILE": str(env_file), "APT_INDEX_DIR": "from-environment"},
+            ):
+                os.environ.pop("APT_PAGE_SIZE", None)
+
+                apt_cron.load_env_file()
+
+                self.assertEqual(os.environ["APT_PAGE_SIZE"], "7")
+                self.assertEqual(os.environ["APT_INDEX_DIR"], "from-environment")
+
+
 class DynamicAttachmentsTransport(SequenceTransport):
     def request(self, method, url, payload=None):
         if "/api/pap/files/" in url:

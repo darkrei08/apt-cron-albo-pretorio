@@ -6,7 +6,7 @@ fully accepted until the rendered result is observed.
 
 Everything here runs in a **private test channel**, never in production. No automated test in this
 repository contacts Telegram (`tests/` uses fake transports). No item has been run: the operator will
-supply the test credentials later through a protected local environment file.
+supply the test credentials later through a local env file (`.env` or `APT_ENV_FILE`).
 
 ## Prerequisites
 
@@ -15,9 +15,10 @@ supply the test credentials later through a protected local environment file.
   messages and send documents.
 - A bot token and the test channel's chat id, obtained and owned as follows:
   - **Token and chat owner.** Accepted: the repository operator supplies a dedicated test bot token
-    and the test channel id later through a protected local environment file (mode `0600`, outside
-    Git), never on a command line that lands in shell history. No credential is committed or written
-    into this checklist.
+    and the test channel id later through a local env file, never on a command line that lands in
+    shell history. The file may be a gitignored `.env` in the repository root (loaded automatically)
+    or any path named by `APT_ENV_FILE`, mode `0600`. No credential is committed or written into
+    this checklist, and no base64-encoded value is used: base64 is not encryption.
 - A clean state path and index directory for the check, so nothing touches production state:
 
 ```sh
@@ -42,13 +43,12 @@ Result: NOT RUN
 
 ## V2 — First live run seeds state without publishing
 
-Use a protected environment file containing the dedicated test bot token and chat id. It must not
-be committed and must not appear in shell history.
+Put the dedicated test bot token and chat id in a local env file: the gitignored `.env` in the
+repository root, or the file named by `APT_ENV_FILE`. It must not be committed and must not appear in
+shell history. The script loads the file itself, so nothing needs to be sourced and no value is
+typed on a command line.
 
 ```sh
-set -a
-. /path/to/protected-test.env
-set +a
 python3 apt_cron.py
 ```
 
@@ -144,13 +144,10 @@ Prepare a publishable notice first, as in V3: remove one notice key from the sta
 actually sends a Telegram request. If the state is already seeded and unchanged, the invalid token is
 not exercised and this item is NOT RUN.
 
-Put a deliberately invalid token and the test chat id in a protected environment file, then source
-that file without printing it:
+Put a deliberately invalid token and the test chat id in the local env file (root `.env` or the
+`APT_ENV_FILE` path) and run it without printing the file:
 
 ```sh
-set -a
-. /path/to/invalid-test.env
-set +a
 python3 apt_cron.py
 ```
 
@@ -183,8 +180,8 @@ Result: NOT RUN
       codes of V1, V2, V8.
 - [ ] `docs/adr/0006-notification-format-and-channel.md` records items 1-5 as accepted; item 6
       (format sign-off) moves from open to accepted only after V4, V5, V6 and V7 are answered.
-- [ ] Test credentials removed from the machine after the check; no token written into this file or
-      any commit.
+- [ ] Test credentials removed from the machine after the check; the local env file deleted, no
+      token written into this file or any commit.
 
 Result: NOT RUN
 

@@ -33,6 +33,14 @@ Operator decisions are recorded below.
    `/etc/apt-cron/albo.env`, owned by the service user with mode `0600`, sourced by the cron command
    and never committed. `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` live only in that file; no
    credential is written inline in the crontab, in shell history or in the repository.
+   The operator may instead keep the file inside the repository as a gitignored local `.env`, or
+   point `APT_ENV_FILE` at any other path. `apt_cron.py:load_env_file` reads it before argparse,
+   accepts `KEY=VALUE` with `#` comments and an optional `export ` prefix, and uses
+   `os.environ.setdefault`, so a value already exported by the environment wins over the file.
+   `.env` and `.env.*` are gitignored; variable names and placeholders are documented in the README.
+   Base64 is not encryption: an encoded token in the repository or in Git history
+   is a leaked token, so base64 (or any other repository-stored encoding) is rejected as a storage
+   mechanism and no decryption path exists in the script.
 2. **Timezone.** Accepted: `Europe/Rome`, set explicitly by the schedule (`CRON_TZ` and `TZ` on the
    cron line, `TZ` in the hourly index workflow), never inherited from an unrecorded host default.
 3. **Schedule owner and host.** Accepted: the deployment is portable. The hourly cron runs on
@@ -60,13 +68,16 @@ Operator decisions are recorded below.
   saved only after that document succeeds (`apt_cron.py:297-317`). The next run does not republish an
   unchanged notice, so recovery needs a changed notice or manual state handling.
 - Recording a secret store here does not authorize any commit of credentials: `state/` and
-  `cron.log` are ignored (`.gitignore`), and the environment file lives outside the repository.
+  `cron.log` are ignored (`.gitignore`), and the local env file is ignored as well unless it is the
+  committed `.env.example` template. Files loaded by the script are plain text on disk, so the
+  permission and ownership of the file remain the operator's responsibility.
 
 ## Evidence
 
-- `apt_cron.py`: environment reads at `:418-419`, config assembly at `:430-447` with
-  `date.today()` at `:433`, error redaction in `redact_credentials` `:387-389`, exit codes at
-  `:419-422`, `:426-428`, `:453-455`.
+- `apt_cron.py`: `load_env_file` and its `os.environ.setdefault` precedence, environment reads and
+  config assembly in `main` (`date.today()` included), error redaction in `redact_credentials`,
+  exit codes for a missing credential, a bad `APT_PAGE_SIZE` and a runtime failure.
+- `.gitignore`: `.env` and `.env.*` ignored; no credential template is committed.
 - `README.md`: configuration table (`:38-48`), protected environment file, hourly cron example and
   the `--refresh-index` command (`:67-88`), production checks (`:106-113`).
 - `.github/workflows/update-index.yml`: hourly index refresh with `TZ: Europe/Rome`.

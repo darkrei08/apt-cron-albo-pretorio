@@ -486,7 +486,21 @@ def redact_credentials(text, token):
     return message.replace(token, "[REDACTED]") if token else message
 
 
+def load_env_file(path=None):
+    """Load KEY=VALUE lines without overriding values already in the environment."""
+    source = path or os.environ.get("APT_ENV_FILE") or Path(__file__).resolve().parent / ".env"
+    env_path = Path(source)
+    if not env_path.is_file():
+        return
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        name, separator, value = line.strip().partition("=")
+        if not separator or not name or name.startswith("#"):
+            continue
+        os.environ.setdefault(name.removeprefix("export ").strip(), value.strip().strip("'\""))
+
+
 def main(argv=None):
+    load_env_file()
     parser = argparse.ArgumentParser(description="Publish new APT Basilicata notices to Telegram")
     parser.add_argument("--dry-run", action="store_true", help="read the source without publishing or saving state")
     parser.add_argument(

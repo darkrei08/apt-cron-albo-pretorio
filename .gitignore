@@ -10,3 +10,7 @@ state/
 cron.log
 __pycache__/
 *.pyc
+
+# Local credentials: only the placeholder example is committed
+.env
+.env.*
