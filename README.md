@@ -2,7 +2,7 @@
 
 Publishes new and changed notices from the official APT Basilicata public notices register to a Telegram channel. The job uses only Python's standard library and calls no LLM.
 
-The Wayfinder map is [APT public notices crawler and notification plan](https://github.com/darkrei08/apt-cron-albo-pretorio/issues/1). It records the operator decisions and the linked ticket graph.
+The Wayfinder map is [APT public notices crawler and notification plan](https://github.com/darkrei08/apt-cron-albo-pretorio/issues/1). It records the operator decisions and the linked ticket graph. The current dependency order is in [docs/wayfinder-execution-order.md](docs/wayfinder-execution-order.md). Decision records are in [docs/adr/](docs/adr/), and the live Telegram validation checklist is in [docs/validation/telegram-private-channel.md](docs/validation/telegram-private-channel.md).
 
 ## How it works
 
@@ -54,19 +54,22 @@ Simulate a read without publishing or writing state:
 python3 apt_cron.py --dry-run
 ```
 
-Publish new or changed notices:
+Publish new or changed notices from a protected environment file readable only by the service user:
 
 ```sh
-TELEGRAM_BOT_TOKEN='...' TELEGRAM_CHAT_ID='...' python3 apt_cron.py
+set -a
+. /etc/apt-cron/albo.env
+set +a
+python3 apt_cron.py
 ```
 
 Hourly cron example:
 
 ```cron
-0 * * * * cd /path/to/cron-albo-pretorio && TELEGRAM_BOT_TOKEN='...' TELEGRAM_CHAT_ID='...' /usr/bin/python3 apt_cron.py >> cron.log 2>&1
+0 * * * * cd /path/to/cron-albo-pretorio && CRON_TZ=Europe/Rome TZ=Europe/Rome /bin/sh -c '. /etc/apt-cron/albo.env && exec /usr/bin/python3 apt_cron.py' >> cron.log 2>&1
 ```
 
-Prefer a protected environment or cron file over literal credentials in a crontab line.
+Do not put literal credentials in shell history or crontab lines.
 
 ## Download section
 
@@ -76,7 +79,7 @@ Prefer a protected environment or cron file over literal credentials in a cronta
 
 **When:** once per invocation. The intended schedule is hourly, but scheduling is the operator's choice and is not performed by the script.
 
-**Where it is saved:** raw responses stay in memory. SHA-256 fingerprints, cached official PDF URLs and URLs already sent to Telegram are written to `APT_STATE_PATH` (`state/notices.json` by default). Generated public index files are written to `APT_INDEX_DIR` (`public/` by default) and can be reviewed and committed by the operator. No PDF bytes, personal names, RUP names, responsible persons or non-public groups are written.
+**Where it is saved:** raw responses stay in memory. SHA-256 fingerprints, cached official PDF URLs and URLs already sent to Telegram are written to `APT_STATE_PATH` (`state/notices.json` by default). Generated public index files are written to `APT_INDEX_DIR` (`public/` by default) and can be reviewed and committed by the operator. No PDF bytes are written. The field allowlist excludes dedicated personal-name, RUP, responsible-person and non-public-group fields; free-text title and sector values are not inspected for embedded names, so real-payload PII review remains open.
 
 **What the project does:** reads public metadata and official PDF links, publishes a short message followed by the PDF documents, records fingerprints and sent URLs, and generates a public index from the same allowed fields. It does not copy official documents into the repository or into a local archive.
 
@@ -88,7 +91,8 @@ Prefer a protected environment or cron file over literal credentials in a cronta
 
 - `APT_PAGE_SIZE` must be a positive integer; invalid values exit with status 2.
 - Runtime failures print a single redacted line, so `TELEGRAM_BOT_TOKEN` is not written to logs.
-- Telegram text is bounded to 4096 characters by truncating the title while preserving the official link.
+- Telegram text is bounded to 4096 characters; the title is truncated when possible, with an extreme-overhead fallback that hard-cuts the message.
+- Telegram document captions are bounded to 1024 characters while preserving the `PDF ufficiale:` prefix.
 - GitHub Actions runs compile and the full test suite on pushes to `main` and pull requests.
 
 ## Tests
