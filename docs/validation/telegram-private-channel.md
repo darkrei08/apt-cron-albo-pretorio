@@ -1,11 +1,12 @@
 # Telegram private-channel validation
 
-Manual checklist for issue #10. It closes the gap recorded in `README.md:85`: no live Telegram
+Manual checklist for issue #10. It closes the gap recorded in `README.md:104`: no live Telegram
 message or document has been sent, and `docs/adr/0006-notification-format-and-channel.md` cannot be
-accepted until the rendered result is observed.
+fully accepted until the rendered result is observed.
 
 Everything here runs in a **private test channel**, never in production. No automated test in this
-repository contacts Telegram (`tests/` uses fake transports).
+repository contacts Telegram (`tests/` uses fake transports). No item has been run: the operator will
+supply the test credentials later through a protected local environment file.
 
 ## Prerequisites
 
@@ -13,9 +14,10 @@ repository contacts Telegram (`tests/` uses fake transports).
 - A private test channel (or a test group) where the bot is an administrator with permission to post
   messages and send documents.
 - A bot token and the test channel's chat id, obtained and owned as follows:
-  - **Token and chat owner.** `[INSERT DECISION]` — *Recommendation: the operator named in ADR 0003
-    item 3 creates a dedicated test bot (not the production bot) and supplies its token only through
-    the environment, never on a command line that lands in shell history.*
+  - **Token and chat owner.** Accepted: the repository operator supplies a dedicated test bot token
+    and the test channel id later through a protected local environment file (mode `0600`, outside
+    Git), never on a command line that lands in shell history. No credential is committed or written
+    into this checklist.
 - A clean state path and index directory for the check, so nothing touches production state:
 
 ```sh
@@ -70,13 +72,15 @@ Result: NOT RUN
 
 Check against the message from V3:
 
-1. The headline reads `Nuovo atto APT Basilicata` (or `Atto aggiornato APT Basilicata` when the
-   notice changed after a first publish). Format source: `apt_cron.py:328-354`.
-2. All eight lines are present in order: headline, `Data:`, `Titolo:`, `Categoria:`, `Settore:`,
-   `Atto:`, `Stato:`, `Link:` — plus `PDF:` when a document exists.
+1. The headline distinguishes a new notice from an updated notice after a first publish. Format
+   source: `apt_cron.py:341-357`.
+2. The identity block is present in order: headline, date, title, category hashtag, sector hashtag,
+   act number and year, status and official link, plus PDF link lines when documents exist. Every
+   included public source field with a non-empty value also appears as a label/value line, per ADR
+   0005.
 3. No markup appears literally: no asterisks, underscores or HTML tags introduced by the sender.
    The code sets no `parse_mode`, so any `_` or `*` you see comes from the source data itself.
-4. `Categoria:` and `Settore:` render as single-token hashtags (`#Parola_Con_Underscore`) and
+4. `Categoria:` and `Settore:` render as single-token hashtags (`#Category_With_Underscore`) and
    Telegram turns them into tappable/searchable hashtags.
 5. `Link:` opens the official APT detail page in a browser (the exact notice, not the register
    home page), and the link is worth a preview card only if that is acceptable.
@@ -90,7 +94,7 @@ Result: NOT RUN
 1. A document message arrives for each official PDF (`documentoUnico` plus PDF attachments).
 2. Opening the document works: Telegram fetched the file from the official URL, so a broken or
    expiring source URL shows up here (`sendDocument` by URL, `apt_cron.py:161-169`, call site
-   `:301-307`).
+   `:306-312`).
 3. File name and type are the source's own (`PAP-00244-2026`, `notice.pdf` style), not renamed by
    this project.
 4. The largest real notice PDF is accepted.
@@ -101,33 +105,34 @@ Result: NOT RUN
 5. Non-PDF attachments are never sent. The local unit test proves that `fetch_attachments` keeps only
    PDF MIME types and its fixture includes an `image/png` entry. In the live channel this item remains
    NOT RUN unless a real notice with a non-PDF attachment is observed and no document message appears
-   for it (`apt_cron.py:135-158`).
+   for it (`apt_cron.py:135-158`). If no such notice exists during validation, mark this item
+   NOT RUN and record it as accepted non-applicable with a named owner; the release gate allows that
+   disposition explicitly.
 
 Result: NOT RUN
 
 ## V6 — Caption bound
 
-The caption is `PDF ufficiale: <title>` and is now bounded to 1024 characters by
-`document_caption`, preserving the prefix and truncating an overlong title with an ellipsis. The
-message text remains bounded separately at 4096 characters.
+The caption identifies the act by number and year and is bounded to 1024 characters by
+`document_caption` (`apt_cron.py:334-338`). The message text remains bounded separately at 4096
+characters. The caption carries no title, so a long title cannot affect it; if a notice with an
+unusually long act number is available, confirm the truncated caption is accepted.
 
-1. Confirm captions arrive intact for normal titles.
-2. If a notice with a very long title is available, confirm the truncated caption is accepted.
-   Telegram's documented caption limit is 1024 characters (external, not verified here).
-3. **Caption decision.** Accepted and implemented. This item is PASS only after a long-title case
-   has been observed in the private channel.
+1. Confirm captions arrive intact and identify the act unambiguously.
+2. Confirm no title text appears in any caption.
+3. **Caption decision.** Accepted and implemented. This item is PASS only after a caption has been
+   observed in the private channel.
 
 Result: NOT RUN
 
 ## V7 — Message identifier decision
 
 `publish_message` and `publish_document` return Telegram's `result` object, which contains
-`message_id`; `run_once` discards both (`apt_cron.py:292-307`). Nothing in `$APT_STATE_PATH`
+`message_id`; `run_once` discards both (`apt_cron.py:297-317`). Nothing in `$APT_STATE_PATH`
 therefore identifies a published message.
 
-- **Store `message_id`?** `[INSERT DECISION]` — *Recommendation: yes, record `message_id` per notice
-  and per document in state, because it is the only handle for later edits or deletion required by
-  ADR 0004; the change needs its own ticket and a state migration.*
+- **Store `message_id`?** Accepted decision: no. ADR 0004 keeps messages as the permanent record and
+  performs no deletion, so state does not need message identifiers.
 - Observation for the record: note whether the Telegram client shows any way to locate a message by
   content if `message_id` were absent (search by title, by hashtag) and how reliable it is.
 
@@ -139,19 +144,35 @@ Prepare a publishable notice first, as in V3: remove one notice key from the sta
 actually sends a Telegram request. If the state is already seeded and unchanged, the invalid token is
 not exercised and this item is NOT RUN.
 
+Put a deliberately invalid token and the test chat id in a protected environment file, then source
+that file without printing it:
+
 ```sh
-TELEGRAM_BOT_TOKEN='invalid-token-for-check' TELEGRAM_CHAT_ID='<test chat id>' python3 apt_cron.py
+set -a
+. /path/to/invalid-test.env
+set +a
+python3 apt_cron.py
 ```
 
 Expected: exit code `1`, one stderr line beginning `error:`, no traceback, and the token value not
-printed (`redact_credentials`, `apt_cron.py:383-385`; handler `:434-438`). Also check:
+printed (`redact_credentials`, `apt_cron.py:387-389`; handler `:453-455`). Also check:
 
 ```sh
 APT_PAGE_SIZE=bogus python3 apt_cron.py --dry-run
 ```
 
-Expected: exit code `2` with an argparse usage message. And with no credentials at all:
-exit code `2` and the message about `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` (`apt_cron.py:411-412`).
+Expected: exit code `2` with an argparse usage message. Run the no-credential case with the
+variables explicitly unset so a previously sourced file cannot mask it:
+
+```sh
+env -u TELEGRAM_BOT_TOKEN -u TELEGRAM_CHAT_ID python3 apt_cron.py
+```
+
+Expected: exit code `2` and the message about `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`
+(`apt_cron.py:419-422`). The invalid-page-size case above remains a separate configuration check and
+does not test credentials, because `--dry-run` does not require them.
+With `--refresh-index` and no credentials the same run must instead succeed without contacting
+Telegram (`apt_cron.py:448-451`).
 
 Result: NOT RUN
 
@@ -160,8 +181,8 @@ Result: NOT RUN
 - [ ] Every item above is PASS, or FAIL with an owner and a ticket.
 - [ ] Evidence captured: the message text, the document names, the largest PDF size, and the exit
       codes of V1, V2, V8.
-- [ ] `docs/adr/0006-notification-format-and-channel.md` updated from `proposed` to `accepted` only
-      after V4, V5, V6 and V7 are answered.
+- [ ] `docs/adr/0006-notification-format-and-channel.md` records items 1-5 as accepted; item 6
+      (format sign-off) moves from open to accepted only after V4, V5, V6 and V7 are answered.
 - [ ] Test credentials removed from the machine after the check; no token written into this file or
       any commit.
 

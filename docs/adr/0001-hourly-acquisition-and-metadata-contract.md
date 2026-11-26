@@ -26,14 +26,17 @@ alternative for the notice list.
    `application/pdf` (`documentoUnico.downloadUrl`) plus PDF attachment URLs are kept. PDF bytes
    are never downloaded by this project; Telegram fetches each document by URL, and publishing uses
    `POST /sendMessage` and `POST /sendDocument`.
-3. **Only allowed public metadata fields are read and published.** `NOTICE_FIELDS` maps nine source
-   fields: id, title, category, sector, publication start and end dates, year/number pair and
-   status. `detail_url` is derived from `APT_DETAIL_BASE` and the id; `document_url` and
-   `attachment_urls` come from the attachment endpoint. The field map excludes dedicated personal-name,
-   RUP, responsible-person and non-public-group fields. Free-text title and sector values are not
-   inspected for embedded names, so real-payload PII review remains a separate gate. The generated
-   index (`public/index.json`, `index.md`, `index.html`) is built from the same allowed fields only.
-   Widening this field list requires a new decision.
+3. **Only allowed public metadata fields are read and published.** `NOTICE_FIELDS` maps 41 of the 53
+   source keys an act carries: nine under stable output names (id, title, category, sector,
+   publication start and end dates, year/number pair and status) and the other 32 under their register
+   key (`otypeId`, `cntProponente`, `cntDurataPubblicazione`, ...). `detail_url` is derived from
+   `APT_DETAIL_BASE` and the id; `document_url` and `attachment_urls` come from the attachment
+   endpoint. The field map excludes the 12 internal account, login, audit and responsible-person keys
+   listed in ADR 0005, so those never reach state, Telegram or the index. Everything else the register
+   exposes for an act is published: the Telegram message renders the identity block plus one line per
+   non-empty field, and the generated index (`public/index.json`, `index.md`, `index.html`) uses
+   `INDEX_FIELDS`, which is `tuple(NOTICE_FIELDS)` plus the three derived links. Widening or narrowing
+   the map requires a new decision.
 4. **Dedupe by SHA-256 fingerprint.** A notice's fingerprint is the SHA-256 of its canonical JSON
    (`sort_keys=True`, compact separators). The state key is the notice `id`, or, when the id is
    missing, the SHA-256 of the first available stable URL (detail, document, attachment). A notice
@@ -55,18 +58,22 @@ alternative for the notice list.
   are not backfilled; widening coverage would require a decision to paginate.
 - State is the only memory. Deleting `APT_STATE_PATH` re-seeds it and suppresses publishing for that
   run.
+- Fingerprints cover every projected field, so adding a field to `NOTICE_FIELDS` changes every stored
+  fingerprint. After such a deploy, reseed once by moving `APT_STATE_PATH` away before the first run;
+  otherwise that run reports every current notice as "Atto aggiornato".
 - The published field set is the privacy boundary as well as the schema. Any new field is a new
   decision, not an implementation detail.
 
 ## Evidence
 
-- `apt_cron.py`: `NOTICE_FIELDS`, `fetch_notices` (`page=0&size=`), `fetch_attachments`,
+- `apt_cron.py`: `NOTICE_FIELDS`, `FIELD_LABELS`, `fetch_notices` (`page=0&size=`), `fetch_attachments`,
   `enrich_notices`, `fingerprint`, `notice_key`, `select_changes`, `run_once`, `INDEX_FIELDS`,
-  `UrllibTransport`.
+  `format_message`, `UrllibTransport`.
 - `tests/test_apt_cron.py`: `test_posts_only_a_read_query_to_the_official_source`,
+  `test_projects_every_documented_public_source_field`,
   `test_fetch_attachments_exposes_only_pdf_urls`, `test_first_run_seeds_state_and_does_not_publish`,
   `test_pdf_is_not_sent_again_when_notice_changes_again`,
-  `test_build_index_keeps_only_public_fields`.
+  `test_published_fields_are_the_notice_fields_plus_derived_links`.
 - `README.md`, sections "How it works", "Configuration", "Run" and "Download section".
 
 ## Not verified
