@@ -1808,6 +1808,119 @@ class EnvFileTest(unittest.TestCase):
                 self.assertEqual(os.environ["APT_INDEX_DIR"], "from-environment")
 
 
+class TelegramProfileTest(unittest.TestCase):
+    def test_production_profile_uses_the_production_credential_names(self):
+        with mock.patch.dict(
+            os.environ,
+            {
+                "TELEGRAM_BOT_TOKEN": "PRODUCTION_TOKEN",
+                "TELEGRAM_CHAT_ID": "@production",
+                "APT_TEST_TELEGRAM_BOT_TOKEN": "TEST_TOKEN",
+                "APT_TEST_TELEGRAM_CHAT_ID": "@test",
+            },
+        ):
+            self.assertEqual(
+                apt_cron.telegram_credentials("production"),
+                ("PRODUCTION_TOKEN", "@production"),
+            )
+
+    def test_test_profile_ignores_production_credentials(self):
+        with mock.patch.dict(
+            os.environ,
+            {
+                "TELEGRAM_BOT_TOKEN": "PRODUCTION_TOKEN",
+                "TELEGRAM_CHAT_ID": "@production",
+                "APT_TEST_TELEGRAM_BOT_TOKEN": "TEST_TOKEN",
+                "APT_TEST_TELEGRAM_CHAT_ID": "@test",
+            },
+        ):
+            self.assertEqual(
+                apt_cron.telegram_credentials("test"), ("TEST_TOKEN", "@test")
+            )
+
+    def test_default_production_profile_reaches_the_fake_transport(self):
+        captured = {}
+
+        def run_once(transport, config):
+            captured.update(config)
+            return {}
+
+        with mock.patch.dict(
+            os.environ,
+            {
+                "APT_TELEGRAM_PROFILE": "",
+                "TELEGRAM_BOT_TOKEN": "PRODUCTION_TOKEN",
+                "TELEGRAM_CHAT_ID": "@production",
+                "APT_TEST_TELEGRAM_BOT_TOKEN": "TEST_TOKEN",
+                "APT_TEST_TELEGRAM_CHAT_ID": "@test",
+            },
+        ), mock.patch.object(apt_cron, "UrllibTransport", lambda: object()), mock.patch.object(
+            apt_cron, "run_once", run_once
+        ), mock.patch("sys.stdout", new_callable=io.StringIO):
+            code = apt_cron.main(["--backfill"])
+
+        self.assertEqual(code, 0)
+        self.assertEqual(captured["telegram_profile"], "production")
+        self.assertEqual(captured["chat_id"], "@production")
+        self.assertIn("PRODUCTION_TOKEN", captured["telegram_url"])
+        self.assertNotIn("TEST_TOKEN", captured["telegram_url"])
+
+    def test_test_profile_reaches_the_fake_transport_with_test_credentials(self):
+        captured = {}
+
+        def run_once(transport, config):
+            captured.update(config)
+            return {}
+
+        with mock.patch.dict(
+            os.environ,
+            {
+                "APT_TELEGRAM_PROFILE": "test",
+                "TELEGRAM_BOT_TOKEN": "PRODUCTION_TOKEN",
+                "TELEGRAM_CHAT_ID": "@production",
+                "APT_TEST_TELEGRAM_BOT_TOKEN": "TEST_TOKEN",
+                "APT_TEST_TELEGRAM_CHAT_ID": "@test",
+            },
+        ), mock.patch.object(apt_cron, "UrllibTransport", lambda: object()), mock.patch.object(
+            apt_cron, "run_once", run_once
+        ), mock.patch("sys.stdout", new_callable=io.StringIO):
+            code = apt_cron.main(["--backfill"])
+
+        self.assertEqual(code, 0)
+        self.assertEqual(captured["telegram_profile"], "test")
+        self.assertEqual(captured["chat_id"], "@test")
+        self.assertIn("TEST_TOKEN", captured["telegram_url"])
+        self.assertNotIn("PRODUCTION_TOKEN", captured["telegram_url"])
+
+    def test_missing_test_credentials_do_not_fall_back_to_production(self):
+        with mock.patch.dict(
+            os.environ,
+            {
+                "APT_TELEGRAM_PROFILE": "test",
+                "TELEGRAM_BOT_TOKEN": "PRODUCTION_TOKEN",
+                "TELEGRAM_CHAT_ID": "@production",
+                "APT_TEST_TELEGRAM_BOT_TOKEN": "",
+                "APT_TEST_TELEGRAM_CHAT_ID": "",
+            },
+        ), mock.patch("sys.stderr", new_callable=io.StringIO) as stderr:
+            with self.assertRaises(SystemExit) as raised:
+                apt_cron.main(["--backfill"])
+
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("APT_TEST_TELEGRAM_BOT_TOKEN", stderr.getvalue())
+        self.assertIn("APT_TEST_TELEGRAM_CHAT_ID", stderr.getvalue())
+
+    def test_unknown_profile_is_rejected(self):
+        with mock.patch.dict(
+            os.environ, {"APT_TELEGRAM_PROFILE": "staging"}
+        ), mock.patch("sys.stderr", new_callable=io.StringIO) as stderr:
+            with self.assertRaises(SystemExit) as raised:
+                apt_cron.main(["--dry-run"])
+
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("APT_TELEGRAM_PROFILE must be one of", stderr.getvalue())
+
+
 class DynamicAttachmentsTransport(SequenceTransport):
     def request(self, method, url, payload=None):
         if "/api/pap/files/" in url:

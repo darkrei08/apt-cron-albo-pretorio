@@ -2,6 +2,8 @@
 
 Publishes new and changed notices from the official APT Basilicata public notices register to a Telegram channel, and keeps a public index of the current notices published from this repository. The job uses only Python's standard library and calls no LLM.
 
+The repository owns two publication surfaces: the Telegram destination and the committed `public/index.*` files. It does not archive official documents, delete channel messages, or send anything unless a publication command is run.
+
 The Wayfinder map is [APT public notices crawler and notification plan](https://github.com/darkrei08/apt-cron-albo-pretorio/issues/1). It records the operator decisions and the linked ticket graph. The current dependency order is in [docs/wayfinder-execution-order.md](docs/wayfinder-execution-order.md). Decision records are in [docs/adr/](docs/adr/), and the live Telegram validation checklist is in [docs/validation/telegram-private-channel.md](docs/validation/telegram-private-channel.md). The operator-only protected-host checklist is in [docs/operations/operator-handoff.md](docs/operations/operator-handoff.md).
 
 ## How it works
@@ -56,8 +58,11 @@ No third-party Python package is required.
 
 | Variable | Required | Default | Purpose |
 | --- | --- | --- | --- |
-| `TELEGRAM_BOT_TOKEN` | yes, unless `--dry-run` or `--refresh-index` | none | Bot token; only from the environment or a gitignored env file |
-| `TELEGRAM_CHAT_ID` | yes, unless `--dry-run` or `--refresh-index` | none | Channel or chat identifier |
+| `APT_TELEGRAM_PROFILE` | no | `production` | Destination profile: `production` or `test`; selects which credential names are read |
+| `TELEGRAM_BOT_TOKEN` | yes in `production` mode, unless `--dry-run` or `--refresh-index` | none | Production bot token; only from the environment or a protected env file |
+| `TELEGRAM_CHAT_ID` | yes in `production` mode, unless `--dry-run` or `--refresh-index` | none | Production channel or chat identifier |
+| `APT_TEST_TELEGRAM_BOT_TOKEN` | yes in `test` mode, unless `--dry-run` or `--refresh-index` | none | Test bot token; never reused as production credentials |
+| `APT_TEST_TELEGRAM_CHAT_ID` | yes in `test` mode, unless `--dry-run` or `--refresh-index` | none | Test channel or chat identifier |
 | `APT_SOURCE_URL` | no | `https://siopi.publisys.it/kapi-aptbasilicata/api/pap/filter` | API base URL, without query string |
 | `APT_NATURE_ID` | no | `200152` | Notice category identifier from the source |
 | `APT_PAGE_SIZE` | no | `20` | Number of notices requested per run |
@@ -69,6 +74,21 @@ No third-party Python package is required.
 
 The generated `state/` directory and Telegram credentials are not committed.
 
+## Destination profiles and where secrets belong
+
+The default profile is `production`. Set `APT_TELEGRAM_PROFILE=test` only for isolated validation in
+a private test channel. The program reads only the credential names selected by the profile; test
+credentials never fall back to production credentials, and an unknown profile exits with code `2`.
+
+| Profile | Required variables | Where the operator writes them |
+| --- | --- | --- |
+| `production` | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Protected file `/etc/apt-cron/albo.env`, mode `0600`, or a gitignored local `.env` for development. The cron job points `APT_ENV_FILE` at the protected file. |
+| `test` | `APT_TEST_TELEGRAM_BOT_TOKEN`, `APT_TEST_TELEGRAM_CHAT_ID` | A separate gitignored local file such as `.env.test` (already ignored by `.env.*`), pointed to by `APT_ENV_FILE`, with mode `0600`. Use a dedicated bot and private test channel. |
+
+Never put a token or chat id in a shell command, crontab line, issue, log, commit or this README.
+The script redacts the selected token in its error output. A token pasted into a chat must be treated
+as exposed and rotated before use.
+
 Configuration can come from a local `KEY=VALUE` file instead of the shell environment. Before
 reading any setting the script loads `$APT_ENV_FILE`, or `.env` in the repository root when that
 variable is unset, and it never overrides a variable that is already set, so a real environment
@@ -77,6 +97,30 @@ accepted. `.env` and `.env.*` are gitignored, so a local env file is never commi
 names and placeholders are documented in the configuration table above. Do not store a
 base64-encoded credential: base64 is not encryption, and
 an encoded token in the repository or in Git history is a leaked token.
+
+## Test message template
+
+The renderer sends HTML through `sendMessage` with `parse_mode: HTML`. The synthetic shape below is
+its structural template; real values are escaped and clipped before sending:
+
+```html
+<b>Nuovo atto APT Basilicata</b>
+<u>Atto &lt;number&gt;/&lt;year&gt;</u>
+<a href="https://.../dettaglio/&lt;id&gt;">Atto ufficiale</a>
+<a href="https://.../download/unico/...">PDF ufficiale</a>
+<a href="https://.../download/single/...">Allegato</a>
+<b>Titolo:</b> &lt;title&gt;
+<b>Pubblicato il:</b> &lt;dd/mm/yyyy&gt;
+<b>Scade il:</b> &lt;dd/mm/yyyy&gt;
+#Categoria_Con_Sottolineature #SETTORE
+<b>Stato:</b> &lt;status&gt;
+<blockquote expandable>Label: value</blockquote>
+```
+
+The first line changes to `Atto aggiornato`, `Atto scaduto` or `Atto archiviato` according to the
+state of the notice. Tests in `tests/test_apt_cron.py` use fake transports and synthetic notices; they
+never contact Telegram. Use `APT_TELEGRAM_PROFILE=test` and isolated state/index paths for any live
+private-channel check.
 
 ## Run
 
@@ -94,14 +138,30 @@ python3 apt_cron.py --refresh-index
 ```
 
 Publish the whole published archive, not just the current window, oldest act first and with no index
-rebuild. This is a one-off recovery path: it reads every page the source holds, sends a message for
-every act not yet in state, and publishes nothing on a rerun of unchanged acts. Archived acts that
+rebuild. This is a one-off recovery path: it reads every page the source holds and sends a message
+when the act's `sent_messages` fingerprint does not match the current fingerprint. Acts seeded by a
+normal run are still published because seeding fills `notices` but leaves `sent_messages` empty. It
+publishes nothing on a rerun of unchanged acts. Archived acts that
 no longer expose documents still produce their metadata message; only the document messages are omitted.
 
 ```sh
 python3 apt_cron.py --backfill --dry-run   # read the archive and report without sending
 python3 apt_cron.py --backfill            # publish it, credentials required
 ```
+
+### CLI command reference
+
+| Command | Credentials | Effect |
+| --- | --- | --- |
+| `python3 apt_cron.py --dry-run` | none | Reads the source and reports counts; no state and no index write. |
+| `python3 apt_cron.py --refresh-index` | none | Rebuilds `public/index.*` only; no state and no Telegram traffic. |
+| `python3 apt_cron.py --backfill --dry-run` | none | Reads the whole archive and reports counts without publishing. |
+| `python3 apt_cron.py --backfill` | selected profile | Publishes the archive oldest first; no index rebuild. |
+| `python3 apt_cron.py` | selected profile | Publishes new or changed notices in the current window and rebuilds the index. |
+
+Set the profile and the environment file outside the command that contains secrets. For example,
+run a local test check with `APT_ENV_FILE=.env.test APT_TELEGRAM_PROFILE=test python3 apt_cron.py --backfill --dry-run`;
+the dry run still sends nothing.
 
 Publish new or changed notices with a local credentials file inside the repository. The script
 loads it itself, so no shell sourcing is needed and no credential reaches shell history:
@@ -118,6 +178,7 @@ user, is equally supported. Point `APT_ENV_FILE` at it to have the script load i
 
 ```sh
 export APT_ENV_FILE=/etc/apt-cron/albo.env
+export APT_TELEGRAM_PROFILE=production
 python3 apt_cron.py
 ```
 
@@ -126,15 +187,16 @@ Hourly cron example:
 ```cron
 CRON_TZ=Europe/Rome
 MAILTO=operator@example.invalid
-0 * * * * cd /path/to/cron-albo-pretorio && TZ=Europe/Rome APT_ENV_FILE=/etc/apt-cron/albo.env /usr/bin/flock -n /tmp/apt-cron.lock /usr/bin/python3 apt_cron.py
+0 * * * * cd /path/to/cron-albo-pretorio && TZ=Europe/Rome APT_ENV_FILE=/etc/apt-cron/albo.env APT_TELEGRAM_PROFILE=production /usr/bin/flock -n /tmp/apt-cron.lock /usr/bin/python3 apt_cron.py
 ```
 
-Do not put literal credentials in shell history or crontab lines. `APT_ENV_FILE` makes the script load
-the protected plain `KEY=VALUE` file itself; sourcing the file does not export its assignments. With a
-repository-local `.env`, omit `APT_ENV_FILE` because the script loads `.env` from its own directory.
-Set `CRON_TZ` and `TZ` to `Europe/Rome` as in the example, and set `MAILTO` so cron mails the
-redacted failure output to the maintainer. Do not redirect cron output to `cron.log` if `MAILTO` is
-the alert path; add a separate logging handler when persistent logs are required.
+Customize the cron entry by replacing `/path/to/cron-albo-pretorio` with the installed checkout,
+`/tmp/apt-cron.lock` with the protected lock path, `operator@example.invalid` with the real alert
+mailbox, and the environment-file path with the protected production file. Never add token or chat
+values to the crontab line. Set `CRON_TZ` and `TZ` to `Europe/Rome`, keep `APT_TELEGRAM_PROFILE=production`
+explicit, and set `MAILTO` so cron mails the redacted failure output to the maintainer. Do not redirect
+cron output to `cron.log` if `MAILTO` is the alert path; add a separate logging handler when persistent
+logs are required. A test profile must never be installed in the hourly cron entry.
 
 The committed index is refreshed by `.github/workflows/update-index.yml` every hour and on manual
 dispatch. The workflow needs no Telegram credentials: it runs `apt_cron.py --refresh-index` and

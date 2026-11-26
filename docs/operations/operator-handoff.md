@@ -38,6 +38,9 @@ worktree status. A different commit does not satisfy the gate.
 
 The script supports a protected environment file through `APT_ENV_FILE`. The operator writes the
 rotated `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` out of band and never prints or commits them.
+Keep `APT_TELEGRAM_PROFILE=production` explicit. Private-channel tests use a separate gitignored
+env file with `APT_TELEGRAM_PROFILE=test` and the `APT_TEST_TELEGRAM_*` names; those values must
+never be installed in the hourly job.
 
 ```sh
 sudo touch /etc/apt-cron/albo.env
@@ -56,6 +59,7 @@ the values themselves unrecorded.
 
 ```sh
 export APT_ENV_FILE=/etc/apt-cron/albo.env
+export APT_TELEGRAM_PROFILE=production
 export APT_STATE_PATH=/var/lib/apt-cron/state/notices.json
 export APT_INDEX_DIR=/opt/apt-cron-pretorio/public
 export TZ=Europe/Rome
@@ -86,6 +90,7 @@ authorization described above or after a recorded GO. Keep cron disabled until a
 
 ```sh
 export APT_ENV_FILE=/etc/apt-cron/albo.env
+export APT_TELEGRAM_PROFILE=production
 export APT_STATE_PATH=/var/lib/apt-cron/state/notices.json
 export APT_INDEX_DIR=/opt/apt-cron-pretorio/public
 export TZ=Europe/Rome
@@ -109,12 +114,13 @@ the backfill is the last message.
 
 ## 6. Manual production run (release execution)
 
-This single normal-mode run is the gate part 4 evidence run. Under the explicit pilot authorization
-it follows the pilot backfill and is the only normal-mode run allowed; it does not activate the
-schedule. Without a pilot, run it only after the GO recorded in step 10. After the backfill is
-complete:
+This single normal-mode run is the gate part 4 evidence run. A pilot authorization is required to
+collect this evidence before GO; the run follows the pilot backfill, is the only normal-mode run
+allowed, and does not activate the schedule. Without a pilot, this step is not authorized and the
+gate cannot reach GO. After the backfill is complete:
 
 ```sh
+export APT_TELEGRAM_PROFILE=production
 /usr/bin/flock -n /run/apt-cron/apt-cron.lock /usr/bin/python3 apt_cron.py \
   >> /var/log/apt-cron/manual-run.log 2>&1
 echo $?
@@ -136,7 +142,7 @@ in the crontab line.
 ```cron
 CRON_TZ=Europe/Rome
 MAILTO=<OPERATOR_ALERT_ADDRESS>
-0 * * * * cd /opt/apt-cron-pretorio && TZ=Europe/Rome /usr/bin/flock -n /run/apt-cron/apt-cron.lock /bin/sh -c 'export APT_ENV_FILE=/etc/apt-cron/albo.env APT_STATE_PATH=/var/lib/apt-cron/state/notices.json APT_INDEX_DIR=/opt/apt-cron-pretorio/public; exec /usr/bin/python3 apt_cron.py'
+0 * * * * cd /opt/apt-cron-pretorio && TZ=Europe/Rome /usr/bin/flock -n /run/apt-cron/apt-cron.lock /bin/sh -c 'export APT_ENV_FILE=/etc/apt-cron/albo.env APT_TELEGRAM_PROFILE=production APT_STATE_PATH=/var/lib/apt-cron/state/notices.json APT_INDEX_DIR=/opt/apt-cron-pretorio/public; exec /usr/bin/python3 apt_cron.py'
 ```
 
 Verify with `crontab -l` and `systemctl is-active cron`. Record the installation time and the named
@@ -196,8 +202,8 @@ Ticket #32 and ADR 0007 stay HOLD until all five parts have recorded PASS eviden
 2. CI green on the exact release commit;
 3. current private-channel validation passed;
 4. protected host installed, credentials rotated and one manual production run observed under the
-   pilot authorization or after GO;
-5. rollback rehearsed under the same authorization.
+   pilot authorization;
+5. rollback rehearsed under the same pilot authorization.
 
 Record the GO only after those five PASS lines and their evidence links exist. Steps 7-8 then become
 authorized.

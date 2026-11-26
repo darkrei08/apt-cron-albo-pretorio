@@ -14,16 +14,19 @@ credentials through a local env file (`APT_ENV_FILE`), and the recorded results 
 - Python 3.11 or newer on the machine performing the check.
 - A private test channel (or a test group) where the bot is an administrator with permission to post
   messages and send documents.
-- A bot token and the test channel's chat id, obtained and owned as follows:
-  - **Token and chat owner.** Accepted: the repository operator supplies a dedicated test bot token
-    and the test channel id later through a local env file, never on a command line that lands in
-    shell history. The file may be a gitignored `.env` in the repository root (loaded automatically)
-    or any path named by `APT_ENV_FILE`, mode `0600`. No credential is committed or written into
-    this checklist, and no base64-encoded value is used: base64 is not encryption.
+- A dedicated test bot token and the test channel's chat id, obtained and owned as follows:
+  - **Token and chat owner.** Accepted: the repository operator supplies these values through
+    a gitignored env file such as `.env.test`, never on a command line that lands in shell history.
+    The file must be mode `0600` and is selected with `APT_ENV_FILE`. The test values belong only in
+    `APT_TEST_TELEGRAM_BOT_TOKEN` and `APT_TEST_TELEGRAM_CHAT_ID`, with
+    `APT_TELEGRAM_PROFILE=test`. Production credential names are ignored in this profile.
+    No credential is committed or written into this checklist, and base64 is not encryption.
 - A clean state path and index directory for the check, so nothing touches production state:
 
 ```sh
 export CHECK_DIR="$(mktemp -d)"
+export APT_ENV_FILE=.env.test
+export APT_TELEGRAM_PROFILE=test
 export APT_STATE_PATH="$CHECK_DIR/state/notices.json"
 export APT_INDEX_DIR="$CHECK_DIR/public"
 ```
@@ -50,10 +53,9 @@ Result: PASS (historical plain-text run; the read-only path is unchanged)
 
 ## V2 — First live run seeds state without publishing
 
-Put the dedicated test bot token and chat id in a local env file: the gitignored `.env` in the
-repository root, or the file named by `APT_ENV_FILE`. It must not be committed and must not appear in
-shell history. The script loads the file itself, so nothing needs to be sourced and no value is
-typed on a command line.
+Put the dedicated test bot token and chat id in the gitignored `.env.test` named by
+`APT_ENV_FILE`, using the two `APT_TEST_TELEGRAM_*` variable names. It must not be committed and
+must not appear in shell history. The script loads the file itself; the profile must be `test`.
 
 ```sh
 python3 apt_cron.py
@@ -68,8 +70,10 @@ current schema.
 
 ## V3 — Publish one notice
 
-Make one already-seeded notice look new by removing its key from the `notices` map in
-`$APT_STATE_PATH` (edit the JSON; keep the rest of the file intact), then repeat the V2 command.
+Make one already-seeded notice publishable again. For that key, remove it from `notices` and
+`sent_messages`, and remove every `sent_documents` entry whose value equals the key. Keep the rest
+of the JSON intact, then repeat the V2 command. Removing only `notices` leaves `sent_messages` and
+`sent_documents` able to suppress the message and uploads.
 
 Expected: one HTML-formatted message plus one document message for the published PDF and every
 downloadable attachment for that notice; `sent_documents` gains one entry per document URL; index
@@ -85,12 +89,14 @@ Check against the message from V3:
    notices, with precedence updated, expired, archived, new. Format source: `format_message` and
    `_act_headline` in `apt_cron.py`.
 2. The second line is the underlined identity `<u>Atto <number>/<year></u>`.
-3. The visible block follows with the translated title, publication, expiry and optional document
-   dates, the category and sector hashtags, the status, then labelled official, PDF and attachment
-   links when documents exist.
-4. Every remaining non-empty public source field appears as a `Label: value` line inside a single
-   expandable `<blockquote expandable>` (ADR 0005). When the source has no expiry, the quote starts
-   with the tested Italian unknown-expiry marker.
+3. The labelled official, PDF and attachment links follow the identity when documents exist. The
+   remaining visible lines are the translated title, publication, expiry and optional document dates,
+   the category and sector hashtags, then the status. This order is asserted by
+   `FormatMessageTest.test_formats_a_readable_html_message`.
+4. Non-empty public source fields not shown in the visible block appear as `Label: value` lines
+   inside one expandable `<blockquote expandable>` (ADR 0005) while the 4096-character budget allows
+   it; long quotes may be clipped as documented in `README.md`. When the source has no expiry, the
+   quote starts with the tested Italian unknown-expiry marker.
 5. Telegram renders the tags from the sender's `parse_mode: HTML` payload, with no literal tags
    visible in the client. Dynamic values, hashtags and URLs are escaped before rendering, so source
    `_` or `*` characters remain data rather than sender markup.
@@ -98,7 +104,7 @@ Check against the message from V3:
    Telegram turns them into tappable/searchable hashtags.
 7. `Atto ufficiale` opens the official APT detail page in a browser (the exact notice, not the
    register home page), and the link is worth a preview card only if that is acceptable.
-8. Screen-reader order is linear: headline, identity, visible fields, links, then the expandable quote.
+8. Screen-reader order is linear: headline, identity, links, visible fields, then the expandable quote.
 
 Result: HISTORICAL PASS for the plain-text format; **NOT RUN for the current HTML format**. The
 repository operator must rerun V4 in the private validation channel before the release gate can pass.
@@ -156,12 +162,14 @@ Result: PASS (historical plain-text run; message identifiers are unused by desig
 
 ## V8 — Failure path
 
-Prepare a publishable notice first, as in V3: remove one notice key from the state file so this run
-actually sends a Telegram request. If the state is already seeded and unchanged, the invalid token is
-not exercised and this item is NOT RUN.
+Prepare a publishable notice first, as in V3. For one selected notice key, remove it from `notices`
+and `sent_messages`, and remove every `sent_documents` entry whose value equals that key. Removing
+only `notices` is insufficient because `sent_messages` suppresses the text message and
+`sent_documents` suppresses uploads. Alternatively use a genuinely new notice. If no publishable
+notice exists, the invalid-token case is NOT RUN.
 
-Put a deliberately invalid token and the test chat id in the local env file (root `.env` or the
-`APT_ENV_FILE` path) and run it without printing the file:
+Put a deliberately invalid test token and the test chat id in `.env.test` using the
+`APT_TEST_TELEGRAM_*` names, keep `APT_TELEGRAM_PROFILE=test`, and run it without printing the file:
 
 ```sh
 python3 apt_cron.py
@@ -178,11 +186,12 @@ Expected: exit code `2` with an argparse usage message. Run the no-credential ca
 variables explicitly unset so a previously sourced file cannot mask it:
 
 ```sh
-env -u TELEGRAM_BOT_TOKEN -u TELEGRAM_CHAT_ID APT_ENV_FILE=/nonexistent python3 apt_cron.py
+env -u APT_TEST_TELEGRAM_BOT_TOKEN -u APT_TEST_TELEGRAM_CHAT_ID \
+  APT_TELEGRAM_PROFILE=test APT_ENV_FILE=/nonexistent python3 apt_cron.py
 ```
 
-Expected: exit code `2` and the message about `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`
-(the credential guard in `main`). The invalid-page-size case above remains a separate configuration
+Expected: exit code `2` and the message about `APT_TEST_TELEGRAM_BOT_TOKEN` /
+`APT_TEST_TELEGRAM_CHAT_ID` (the credential guard in `main`). The invalid-page-size case above remains a separate configuration
 check and does not test credentials, because `--dry-run` does not require them.
 With `--refresh-index` and no credentials the same run must instead succeed without contacting
 Telegram (`refresh_index` in `apt_cron.py`).

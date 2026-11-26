@@ -29,9 +29,11 @@ Operator decisions are recorded below.
 ## Decision
 
 1. **Credential store.** Accepted: a protected cron environment file, for example
-   `/etc/apt-cron/albo.env`, owned by the service user with mode `0600`, sourced by the cron command
-   and never committed. `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` live only in that file; no
-   credential is written inline in the crontab, in shell history or in the repository.
+   `/etc/apt-cron/albo.env`, owned by the service user with mode `0600`, loaded by the script through
+   `APT_ENV_FILE` in the cron command and never committed. The file is not sourced in the shell. `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` live only in that file; no
+   credential is written inline in the crontab, in shell history or in the repository. Live private
+   checks use `APT_TELEGRAM_PROFILE=test` with a separate gitignored env file and the
+   `APT_TEST_TELEGRAM_*` names; the production profile is explicit in the hourly job.
    The operator may instead keep the file inside the repository as a gitignored local `.env`, or
    point `APT_ENV_FILE` at any other path. `apt_cron.py:load_env_file` reads it before argparse,
    accepts `KEY=VALUE` with `#` comments and an optional `export ` prefix, and uses
@@ -52,8 +54,8 @@ Operator decisions are recorded below.
    daemon log and in the script's error line. Exit codes remain `1` for a runtime failure and `2`
    for a configuration error. Runtime errors pass through `redact_credentials`
    (`apt_cron.py:387-389`); argparse configuration errors print only usage text and do not echo
-   environment values. The cron command sources the environment file but never prints it, so the
-   mail body contains no credential value.
+   environment values. The cron command sets `APT_ENV_FILE` but never prints or sources the file,
+   so the mail body contains no credential value.
 5. **Concurrent-run protection.** Accepted: wrap the cron command in `flock -n` so a second hourly
    invocation exits without publishing. No lock is added to the script; the scheduler owns overlap.
 

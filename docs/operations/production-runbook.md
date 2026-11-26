@@ -57,16 +57,21 @@ adapted before execution; they are not a provisioning record.
 2. **Private validation:** use an isolated state path and the current checklist. Verify HTML rendering,
    official links, every PDF upload, caption and size limits, failure behavior and the absence of
    credential values in output. Do not reuse production state for this test.
-3. **Manual production run:** after the private gate passes, run once with the production state path
-   only under explicit pilot authorization or after a recorded GO. Record the immutable commit, exit
-   code `0`, state-file mtime and index result, and retain logs without secrets.
-4. **Activate the hourly job:** install the following crontab shape only after the GO is recorded in
+3. **Archive backfill:** after the private gate passes, run `python3 apt_cron.py --backfill` with
+   `APT_TELEGRAM_PROFILE=production` and the production state path to publish the whole archive
+only under explicit pilot authorization or after a recorded GO. It publishes acts already seeded by
+   step 1 because selection uses `sent_messages`, not `notices`.
+4. **Manual production run:** after the backfill completes, run once with
+   `APT_TELEGRAM_PROFILE=production` and the production state path under the same authorization.
+   Record the immutable commit, exit code `0`, state-file mtime and index result, and retain logs
+   without secrets.
+5. **Activate the hourly job:** install the following crontab shape only after the GO is recorded in
    ticket #32. A pre-GO pilot remains cron-disabled:
 
 ```cron
 CRON_TZ=Europe/Rome
 MAILTO=operator@example.invalid
-0 * * * * cd /opt/apt-cron-pretorio && TZ=Europe/Rome /usr/bin/flock -n /run/apt-cron/apt-cron.lock /bin/sh -c 'export APT_ENV_FILE=/etc/apt-cron/albo.env APT_STATE_PATH=/var/lib/apt-cron/state/notices.json APT_INDEX_DIR=/opt/apt-cron-pretorio/public; exec /usr/bin/python3 apt_cron.py'
+0 * * * * cd /opt/apt-cron-pretorio && TZ=Europe/Rome /usr/bin/flock -n /run/apt-cron/apt-cron.lock /bin/sh -c 'export APT_ENV_FILE=/etc/apt-cron/albo.env APT_TELEGRAM_PROFILE=production APT_STATE_PATH=/var/lib/apt-cron/state/notices.json APT_INDEX_DIR=/opt/apt-cron-pretorio/public; exec /usr/bin/python3 apt_cron.py'
 ```
 
 Replace the placeholder mailbox and host paths before installation. `CRON_TZ` is a crontab variable

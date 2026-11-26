@@ -12,6 +12,8 @@ Implementation stays bounded by the map; operator-only evidence remains blocked 
 - S5: "Esegui i test, i controlli di qualità e le verifiche di sicurezza disponibili."
 - S6: "Non dichiarare completato un ticket non verificato."
 - S7: "Segnala chiaramente eventuali blocchi o informazioni mancanti."
+- S8: "Token e chat sono per orvare doponlo rioto ora vai i in roiduzine".
+- S9: "Indica nel reamde anche cos afa il repo test temolate dle nesaggio cone e dove sceivere i dati s esibili token eccetera e quali coma di cli poter eseguire e oerisnalizzare il corn eccetra".
 
 ## Tasks
 
@@ -22,7 +24,9 @@ Implementation stays bounded by the map; operator-only evidence remains blocked 
 - T5 (S1,S2,S5,S6,S7): Make the final release-gate decision from ticket 32 only after T1-T4 evidence; route: release + independent verifier; commit: pending.
 - T6 (S1,S2,S7): Provide a concrete installation, validation, monitoring and rollback runbook for tickets 28-31 without claiming host execution; route: release/SRE documentation; commit: `0fab591`.
 - T7 (S1,S2,S7): Provision the local `herdr` host without reading credentials and keep cron disabled until the exact candidate is approved; route: release/SRE operations; evidence: `docs/validation/local-host-provisioning-2026-11-26.md`; commit: `a2e58e4`.
-- T8 (S1,S2,S5,S6,S7): Harden archive seeding, fail closed on malformed source data, isolate attachment failures per notice, and align the private Telegram checklist with all-attachment delivery; route: developer/tests/reviewer; commit: pending.
+- T8 (S1,S2,S5,S6,S7): Harden archive seeding, fail closed on malformed source data, isolate attachment failures per notice, and align the private Telegram checklist with all-attachment delivery; route: developer/tests/reviewer; commit: `23b8649`.
+- T9 (S2,S4,S5,S7): Add an explicit Telegram profile so test credentials cannot replace production credentials; route: developer/tests/security reviewer; commit: pending.
+- T10 (S2,S7): Expand README with repository purpose, test message template, secret locations, CLI commands and cron customization; route: technical writer; commit: pending.
 
 ## Log
 
@@ -35,4 +39,5 @@ Implementation stays bounded by the map; operator-only evidence remains blocked 
 - L7: The user selected the current local host `herdr` (Debian 13, Python 3.13.5) and the repository owner as operational owner. The exact alert address was confirmed from repository-owner metadata without writing it to the repository.
 - L8: Local host provisioning is complete for non-secret infrastructure: service user, protected directories, empty credential file, lock and disabled cron template. `/etc/apt-cron` is `root:apt-cron` mode `0750`, and service-user traversal/readability was checked without reading file contents. The application candidate was not copied because the user chose to wait for PR publication; seed, live validation, manual run, monitoring and rollback remain pending.
 - L9: The provisioning evidence slice is recorded in `a2e58e4` and linked in `6c16a99`; the branch remains above the review-size threshold and requires a chained PR delivery shape before publication.
-- L10: "Correggi il comportamento seed/backfill. Rifiuta risposte sorgente o allegati malformate, senza interpretarle come risultati vuoti. Impedisci che un errore nel recupero allegati blocchi l’intero archivio. Aggiorna la checklist Telegram: ora gli allegati non PDF vengono inviati." T8 implementation is ready; focused archive/PDF tests pass (19 tests), and the full suite `python3 -m unittest -v tests.test_apt_cron` passes (90 tests); `python3 -m py_compile apt_cron.py tests/test_apt_cron.py` also passes. Commit remains pending until the release-gate documentation review passes; production credentials, host execution, live Telegram validation, monitoring and rollback remain operator-only HOLD gates.
+- L10: "Correggi il comportamento seed/backfill. Rifiuta risposte sorgente o allegati malformate, senza interpretarle come risultati vuoti. Impedisci che un errore nel recupero allegati blocchi l’intero archivio. Aggiorna la checklist Telegram: ora gli allegati non PDF vengono inviati." T8 was committed as `23b8649`, passed GGA, and the merged branch has CI run `45904384468`.
+- L11: "doponlo rioto" was clarified as "dopo la rotazione": the supplied token and chat id are test values for use after rotation, not production credentials. No supplied secret is written to this repository, a log or a report. T9 keeps that test path explicit; T10 documents repository scope, message template, secret locations, CLI commands and cron customization.

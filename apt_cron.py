@@ -829,6 +829,18 @@ def redact_credentials(text, token):
     return message.replace(token, "[REDACTED]") if token else message
 
 
+TELEGRAM_PROFILES = {
+    "production": ("TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"),
+    "test": ("APT_TEST_TELEGRAM_BOT_TOKEN", "APT_TEST_TELEGRAM_CHAT_ID"),
+}
+
+
+def telegram_credentials(profile):
+    """Read only the credential names belonging to the selected destination profile."""
+    token_name, chat_name = TELEGRAM_PROFILES[profile]
+    return os.environ.get(token_name, ""), os.environ.get(chat_name, "")
+
+
 def load_env_file(path=None):
     """Load KEY=VALUE lines without overriding values already in the environment."""
     source = path or os.environ.get("APT_ENV_FILE") or Path(__file__).resolve().parent / ".env"
@@ -875,11 +887,15 @@ def main(argv=None):
     )
     args = parser.parse_args(argv)
 
-    token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-    chat_id = os.environ.get("TELEGRAM_CHAT_ID", "")
+    profile = os.environ.get("APT_TELEGRAM_PROFILE", "production").strip().lower() or "production"
+    if profile not in TELEGRAM_PROFILES:
+        parser.error(f"APT_TELEGRAM_PROFILE must be one of: {', '.join(TELEGRAM_PROFILES)}")
+    token_name, chat_name = TELEGRAM_PROFILES[profile]
+    token, chat_id = telegram_credentials(profile)
     if not (args.dry_run or args.refresh_index) and (not token or not chat_id):
         parser.error(
-            "TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are required unless --dry-run or --refresh-index is used"
+            f"{token_name} and {chat_name} are required when APT_TELEGRAM_PROFILE={profile}, "
+            "unless --dry-run or --refresh-index is used"
         )
 
     try:
@@ -902,6 +918,7 @@ def main(argv=None):
         "telegram_url": f"https://api.telegram.org/bot{token}/sendMessage",
         "document_base": f"https://api.telegram.org/bot{token}/sendDocument",
         "chat_id": chat_id,
+        "telegram_profile": profile,
         "dry_run": args.dry_run,
         "archive": args.backfill,
     }
