@@ -111,6 +111,7 @@ Open operator inputs:
   `0005-publication-boundary.md`, `0006-notification-format-and-channel.md` (the decision inputs).
 - `docs/validation/telegram-private-channel.md` (historical part 3 evidence; current HTML validation remains pending, with the non-PDF attachment check accepted non-applicable only for the historical notice).
 - `docs/operations/production-runbook.md` (reproducible operator procedure and recommended protected-path contract; host execution remains unverified).
+- `docs/operations/operator-handoff.md` (separate operator-only commands and evidence records for the protected host; it contains no credentials and records no GO).
 
 ## Not verified
 

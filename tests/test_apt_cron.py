@@ -2,6 +2,7 @@ import json
 import io
 import os
 import contextlib
+import re
 from pathlib import Path
 import tempfile
 import unittest
@@ -509,6 +510,174 @@ class PublishMessageTest(unittest.TestCase):
 
         with self.assertRaises(RuntimeError):
             apt_cron.publish_message(transport, "https://api.telegram.org/botTEST_TOKEN/sendMessage", "@x", "hi")
+
+
+class SyntheticTelegramHtmlValidationTest(unittest.TestCase):
+    """Validate the Destination channel message using only synthetic input and a fake transport."""
+
+    TELEGRAM_URL = "https://api.telegram.invalid/botFAKE_TOKEN/sendMessage"
+    DETAIL_BASE = "https://example.test/albo-pretorio/dettaglio"
+    CHAT_ID = "@test_channel"
+    TAG_RE = re.compile(r"</?[A-Za-z][A-Za-z0-9]*(?:\s[^<>]*)?>")
+    ALLOWED_TAGS = {"a", "b", "blockquote", "u"}
+
+    def synthetic_notice(self, **overrides):
+        notice = {
+            "id": 791962,
+            "title": "Affidamento diretto per la sala espositiva",
+            "category": "Delibera del Direttore Generale",
+            "sector": "UFFICIO AMMINISTRAZIONE",
+            "published": "2026-11-25",
+            "expires": "2026-12-10",
+            "year": 2026,
+            "number": 244,
+            "status": "PUBBLICATO",
+            "cntNumeroGara": "gara 1",
+            "detail_url": f"{self.DETAIL_BASE}/791962",
+            "document_url": (
+                "https://example.test/katti/public/pap/edoc/download/unico/6500/791962"
+            ),
+            "attachment_urls": [
+                "https://example.test/katti/public/pap/edoc/download/single/6500/791962/abc/notice.pdf",
+                "https://example.test/katti/public/pap/edoc/download/single/6500/791962/def/non-pdf.png",
+            ],
+        }
+        notice.update(overrides)
+        return notice
+
+    def assert_balanced_html(self, text):
+        stack = []
+        for match in self.TAG_RE.finditer(text):
+            tag = match.group(0)
+            if tag.startswith("</"):
+                name = tag[2:-1]
+                self.assertTrue(stack, f"unexpected closing tag: {tag}")
+                self.assertEqual(stack.pop(), name, f"unexpected closing tag: {tag}")
+                continue
+            name = tag[1:].split(None, 1)[0].rstrip(">")
+            self.assertIn(name, self.ALLOWED_TAGS, f"unexpected tag: {tag}")
+            stack.append(name)
+        self.assertEqual(stack, [], f"unclosed tags: {stack}")
+        without_tags = self.TAG_RE.sub("", text)
+        self.assertNotIn("<", without_tags)
+        self.assertNotIn(">", without_tags)
+
+    def test_publish_message_sends_parse_mode_html_with_a_formatted_message(self):
+        notice = self.synthetic_notice()
+        message = apt_cron.format_message(notice, self.DETAIL_BASE)
+        transport = FakeTransport({"ok": True, "result": {"message_id": 42}})
+
+        result = apt_cron.publish_message(transport, self.TELEGRAM_URL, self.CHAT_ID, message)
+
+        self.assertEqual(result, {"message_id": 42})
+        self.assertEqual(len(transport.calls), 1)
+        call = transport.calls[0]
+        self.assertEqual(call["method"], "POST")
+        self.assertEqual(call["url"], self.TELEGRAM_URL)
+        self.assertEqual(
+            call["payload"],
+            {"chat_id": self.CHAT_ID, "text": message, "parse_mode": "HTML"},
+        )
+        self.assertEqual(
+            message.splitlines()[:3],
+            [
+                "<b>Nuovo atto APT Basilicata</b>",
+                "<u>Atto 244/2026</u>",
+                f'<a href="{self.DETAIL_BASE}/791962">Atto ufficiale</a>',
+            ],
+        )
+        self.assertIn("<b>Titolo:</b> Affidamento diretto per la sala espositiva", message)
+        self.assert_balanced_html(message)
+
+    def test_hostile_dynamic_values_are_escaped_without_raw_tags(self):
+        notice = self.synthetic_notice(
+            title='Affidamento <script>alert("x")</script> & <img src=x onerror=1>',
+            status="</b></u><svg/onload=alert(1)>",
+            cntNumeroGara='gara ">&<b>injected</b>',
+            detail_url='https://example.test/dettaglio?a=1&b="2"><script>evil()</script>',
+            document_url='https://example.test/doc.pdf?x="<img src=y>',
+            attachment_urls=["https://example.test/allegato.png?y=<svg onload=1>"],
+            category="<script>cat</script>",
+            sector='"&sector"',
+        )
+
+        message = apt_cron.format_message(notice, self.DETAIL_BASE)
+
+        self.assertIn(
+            "<b>Titolo:</b> Affidamento &lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt; "
+            "&amp; &lt;img src=x onerror=1&gt;",
+            message,
+        )
+        self.assertIn(
+            "<b>Stato:</b> &lt;/b&gt;&lt;/u&gt;&lt;svg/onload=alert(1)&gt;", message
+        )
+        self.assertIn(
+            "Numero gara: gara &quot;&gt;&amp;&lt;b&gt;injected&lt;/b&gt;", message
+        )
+        self.assertIn(
+            'href="https://example.test/dettaglio?a=1&amp;b=&quot;2&quot;&gt;'
+            "&lt;script&gt;evil()&lt;/script&gt;",
+            message,
+        )
+        for raw in (
+            "<script>",
+            "<img src=x",
+            "<svg",
+            "<b>injected</b>",
+            "</b></u>",
+            'b="2"><script>',
+        ):
+            self.assertNotIn(raw, message)
+        self.assert_balanced_html(message)
+
+    def test_long_hostile_values_stay_bounded_with_balanced_tags(self):
+        hostile = '<script>"&' + "x" * 600
+        notice = self.synthetic_notice(
+            title=hostile,
+            status="</blockquote><b>" + "y" * 600,
+            cntNumeroGara=hostile * 10,
+            cntExternalOggetto="<img src=x onerror=1>" * 50,
+            detail_url="https://example.test/dettaglio?token=" + "a" * 5000,
+            document_url="https://example.test/doc?token=" + "b" * 5000,
+            attachment_urls=[
+                f"https://example.test/allegato-{index}?token=" + "c" * 5000
+                for index in range(10)
+            ],
+        )
+
+        message = apt_cron.format_message(notice, self.DETAIL_BASE)
+
+        self.assertGreater(len(message), 0)
+        self.assertLessEqual(len(message), apt_cron.TELEGRAM_TEXT_LIMIT)
+        self.assertIn(apt_cron.QUOTE_OPEN, message)
+        self.assertTrue(message.endswith(apt_cron.QUOTE_CLOSE))
+        self.assert_balanced_html(message)
+        self.assertNotIn("<script>", message)
+        self.assertNotIn("<img src=x", message)
+
+    def test_official_pdf_and_non_pdf_attachment_links_are_rendered(self):
+        notice = self.synthetic_notice(
+            detail_url=None,
+            document_url="https://example.test/documento-unico.pdf",
+            attachment_urls=[
+                "https://example.test/allegato.pdf",
+                "https://example.test/allegato.png",
+            ],
+        )
+
+        message = apt_cron.format_message(notice, "https://example.test/other-base")
+
+        self.assertIn(
+            '<a href="https://example.test/other-base/791962">Atto ufficiale</a>', message
+        )
+        self.assertIn(
+            '<a href="https://example.test/documento-unico.pdf">PDF ufficiale</a>', message
+        )
+        self.assertIn('<a href="https://example.test/allegato.pdf">Allegato</a>', message)
+        self.assertIn('<a href="https://example.test/allegato.png">Allegato</a>', message)
+        self.assertEqual(message.count(">Allegato</a>"), 2)
+        self.assertNotIn("link non disponibile", message)
+        self.assert_balanced_html(message)
 
 
 class DeduplicationTest(unittest.TestCase):

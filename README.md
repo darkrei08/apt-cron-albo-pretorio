@@ -2,7 +2,7 @@
 
 Publishes new and changed notices from the official APT Basilicata public notices register to a Telegram channel, and keeps a public index of the current notices published from this repository. The job uses only Python's standard library and calls no LLM.
 
-The Wayfinder map is [APT public notices crawler and notification plan](https://github.com/darkrei08/apt-cron-albo-pretorio/issues/1). It records the operator decisions and the linked ticket graph. The current dependency order is in [docs/wayfinder-execution-order.md](docs/wayfinder-execution-order.md). Decision records are in [docs/adr/](docs/adr/), and the live Telegram validation checklist is in [docs/validation/telegram-private-channel.md](docs/validation/telegram-private-channel.md).
+The Wayfinder map is [APT public notices crawler and notification plan](https://github.com/darkrei08/apt-cron-albo-pretorio/issues/1). It records the operator decisions and the linked ticket graph. The current dependency order is in [docs/wayfinder-execution-order.md](docs/wayfinder-execution-order.md). Decision records are in [docs/adr/](docs/adr/), and the live Telegram validation checklist is in [docs/validation/telegram-private-channel.md](docs/validation/telegram-private-channel.md). The operator-only protected-host checklist is in [docs/operations/operator-handoff.md](docs/operations/operator-handoff.md).
 
 ## How it works
 
@@ -125,14 +125,16 @@ Hourly cron example:
 
 ```cron
 CRON_TZ=Europe/Rome
-0 * * * * cd /path/to/cron-albo-pretorio && TZ=Europe/Rome /usr/bin/flock -n /tmp/apt-cron.lock /bin/sh -c '. /etc/apt-cron/albo.env && exec /usr/bin/python3 apt_cron.py' >> cron.log 2>&1
+MAILTO=operator@example.invalid
+0 * * * * cd /path/to/cron-albo-pretorio && TZ=Europe/Rome APT_ENV_FILE=/etc/apt-cron/albo.env /usr/bin/flock -n /tmp/apt-cron.lock /usr/bin/python3 apt_cron.py
 ```
 
-Do not put literal credentials in shell history or crontab lines. The cron command above sources the
-file outside the repository; with a repository-local `.env` the `/bin/sh -c` wrapper can simply be
-`exec /usr/bin/python3 apt_cron.py`, because the script loads `.env` from its own directory. Set
-`CRON_TZ` and `TZ` to `Europe/Rome` as in the example, and set `MAILTO` so a failed run reaches the
-maintainer.
+Do not put literal credentials in shell history or crontab lines. `APT_ENV_FILE` makes the script load
+the protected plain `KEY=VALUE` file itself; sourcing the file does not export its assignments. With a
+repository-local `.env`, omit `APT_ENV_FILE` because the script loads `.env` from its own directory.
+Set `CRON_TZ` and `TZ` to `Europe/Rome` as in the example, and set `MAILTO` so cron mails the
+redacted failure output to the maintainer. Do not redirect cron output to `cron.log` if `MAILTO` is
+the alert path; add a separate logging handler when persistent logs are required.
 
 The committed index is refreshed by `.github/workflows/update-index.yml` every hour and on manual
 dispatch. The workflow needs no Telegram credentials: it runs `apt_cron.py --refresh-index` and

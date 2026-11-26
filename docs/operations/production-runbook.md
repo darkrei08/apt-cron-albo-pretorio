@@ -57,10 +57,11 @@ adapted before execution; they are not a provisioning record.
 2. **Private validation:** use an isolated state path and the current checklist. Verify HTML rendering,
    official links, every PDF upload, caption and size limits, failure behavior and the absence of
    credential values in output. Do not reuse production state for this test.
-3. **Manual production run:** after the private gate passes, run once with the production state path,
-   record the immutable commit, exit code `0`, state-file mtime and index result, and retain logs without
-   secrets.
-4. **Activate the hourly job:** install the following crontab shape only after steps 1-3 pass:
+3. **Manual production run:** after the private gate passes, run once with the production state path
+   only under explicit pilot authorization or after a recorded GO. Record the immutable commit, exit
+   code `0`, state-file mtime and index result, and retain logs without secrets.
+4. **Activate the hourly job:** install the following crontab shape only after the GO is recorded in
+   ticket #32. A pre-GO pilot remains cron-disabled:
 
 ```cron
 CRON_TZ=Europe/Rome
@@ -102,3 +103,8 @@ Ticket 31 must name the actual observer and alert destination.
 - Ticket 31: name the observer, alert destinations and rollback trigger.
 - Ticket 32: record the final go/no-go decision against ADR 0007. This runbook is preparation, not
   production approval.
+
+The separate operator checklist in [operator-handoff.md](operator-handoff.md) lists the exact commands
+and evidence records for installation, credential rotation, seed, private validation, real backfill,
+manual run, cron activation, 24-hour monitoring and rollback rehearsal. It contains no credentials
+and does not record a GO.
