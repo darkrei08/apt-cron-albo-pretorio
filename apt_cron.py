@@ -111,10 +111,12 @@ FIELD_LABELS = {
 
 
 def parse_source_response(response):
-    return [
-        {name: item.get(source) for name, source in NOTICE_FIELDS.items()}
-        for item in response.get("results", [])
-    ]
+    if not isinstance(response, dict):
+        raise RuntimeError("source response must be an object")
+    results = response.get("results")
+    if not isinstance(results, list) or any(not isinstance(item, dict) for item in results):
+        raise RuntimeError("source response results must be a list of objects")
+    return [{name: item.get(source) for name, source in NOTICE_FIELDS.items()} for item in results]
 
 
 def _display_date(value):
@@ -206,18 +208,25 @@ def migrate_state(state):
     return migrated
 
 
-def select_changes(notices, state):
+def select_changes(notices, state, archive=False):
     state = migrate_state(state)
     current = {notice_key(notice): fingerprint(notice) for notice in notices}
     if state is None:
         return [], dict(empty_state(), notices=current)
 
     previous = state["notices"]
-    changes = [
-        (notice, notice_key(notice) in previous)
-        for notice in notices
-        if current[notice_key(notice)] != previous.get(notice_key(notice))
-    ]
+    sent_messages = state["sent_messages"]
+    changes = []
+    for notice in notices:
+        key = notice_key(notice)
+        changed = current[key] != previous.get(key)
+        unpublished_archive_notice = archive and sent_messages.get(key) != current[key]
+        if not (changed or unpublished_archive_notice):
+            continue
+        was_update = key in previous
+        if archive:
+            was_update = was_update and sent_messages.get(key) == previous.get(key)
+        changes.append((notice, was_update))
     return changes, dict(state, notices={**previous, **current})
 
 
@@ -256,11 +265,18 @@ def fetch_notices(transport, source_url, today, nature_id, size, archive=False):
     while page < total_pages:
         url = f"{source_url}?page={page}&size={size}"
         response = transport.request("POST", url, notice_query(today, nature_id, archive))
+        if not isinstance(response, dict):
+            raise RuntimeError("source response must be an object")
         if response.get("error"):
             raise RuntimeError(response.get("errorMessage") or "source error")
         notices.extend(parse_source_response(response))
         # The source answers 404 past the last page, so totalPages is the only stop condition.
-        total_pages = int(response.get("totalPages") or 1) if archive else 1
+        if archive:
+            total_pages = response.get("totalPages")
+            if isinstance(total_pages, bool) or not isinstance(total_pages, int) or total_pages < 1:
+                raise RuntimeError("source response totalPages must be a positive integer")
+        else:
+            total_pages = 1
         page += 1
     return notices
 
@@ -271,20 +287,29 @@ def fetch_attachments(transport, attachments_base, notice_id):
         return empty
     url = f"{attachments_base.rstrip('/')}/{notice_id}"
     response = transport.request("GET", url)
+    if not isinstance(response, dict):
+        raise RuntimeError("attachments response must be an object")
     if response.get("error"):
         raise RuntimeError(response.get("errorMessage") or "attachments error")
-    results = response.get("results") or []
+    results = response.get("results")
+    if not isinstance(results, list) or any(not isinstance(item, dict) for item in results):
+        raise RuntimeError("attachments response results must be a list of objects")
     if not results:
         return empty
     root = results[0]
-    document = root.get("documentoUnico") or {}
+    document = root.get("documentoUnico", {})
+    if not isinstance(document, dict):
+        raise RuntimeError("attachments response document must be an object")
+    files = root.get("files", [])
+    if not isinstance(files, list) or any(not isinstance(item, dict) for item in files):
+        raise RuntimeError("attachments response files must be a list of objects")
     document_url = (
         (public_url(document.get("downloadUrl")) or None)
         if document.get("mimeType") == "application/pdf"
         else None
     )
     attachment_urls = []
-    for item in root.get("files") or []:
+    for item in files:
         url = public_url(item.get("downloadUrl"))
         if url:
             attachment_urls.append(url)
@@ -421,10 +446,13 @@ def write_index(directory, index):
     (Path(directory) / "index.html").write_text("\n".join(html_lines) + "\n", encoding="utf-8")
 
 
-def enrich_notices(transport, notices, state, attachments_base, detail_base):
+def enrich_notices(
+    transport, notices, state, attachments_base, detail_base, tolerate_errors=False
+):
     state = migrate_state(state) or empty_state()
     enriched = []
     attachments = dict(state["attachments"])
+    errors = {}
     for notice in notices:
         item = dict(notice)
         key = notice_key(item)
@@ -437,13 +465,21 @@ def enrich_notices(transport, notices, state, attachments_base, detail_base):
         unchanged = cached is not None and state["notices"].get(key) == fingerprint(
             {**item, **cached}
         )
-        links = cached if unchanged else fetch_attachments(
-            transport, attachments_base, item.get("id")
-        )
+        if unchanged:
+            links = cached
+        else:
+            try:
+                links = fetch_attachments(transport, attachments_base, item.get("id"))
+            except (OSError, RuntimeError, ValueError) as error:
+                if not tolerate_errors:
+                    raise
+                errors[key] = str(error)
+                links = {"document_url": None, "attachment_urls": []}
         item.update(links)
-        attachments[key] = links
+        if key not in errors:
+            attachments[key] = links
         enriched.append(item)
-    return enriched, attachments
+    return enriched, attachments, errors
 
 
 def fetch_enriched_notices(transport, config, state):
@@ -461,11 +497,12 @@ def fetch_enriched_notices(transport, config, state):
         state,
         config["attachments_base"],
         config["detail_base"],
+        tolerate_errors=bool(config.get("archive")),
     )
 
 
 def refresh_index(transport, config):
-    notices, _ = fetch_enriched_notices(transport, config, None)
+    notices, _, _ = fetch_enriched_notices(transport, config, None)
     write_index(config["index_dir"], build_index(notices))
     return {"notices": len(notices)}
 
@@ -482,8 +519,13 @@ def run_once(transport, config):
     if archive and state is None:
         # A backfill exists to publish the archive, so a missing state seeds nothing.
         state = empty_state()
-    notices, attachments = fetch_enriched_notices(transport, config, state)
-    changes, next_state = select_changes(notices, state)
+    notices, attachments, attachment_errors = fetch_enriched_notices(transport, config, state)
+    changes, next_state = select_changes(notices, state, archive=archive)
+    changes = [
+        (notice, was_update)
+        for notice, was_update in changes
+        if notice_key(notice) not in attachment_errors
+    ]
     dry_run = bool(config.get("dry_run"))
     previous_sent = state["sent_messages"] if state else {}
     # A document retry is not a new publication: only count content not announced before.
@@ -493,7 +535,10 @@ def run_once(transport, config):
         if previous_sent.get(notice_key(notice)) != next_state["notices"][notice_key(notice)]
     )
     if dry_run:
-        return {"notices": len(notices), "published": published, "dry_run": True}
+        result = {"notices": len(notices), "published": published, "dry_run": True}
+        if attachment_errors:
+            result["attachment_errors"] = len(attachment_errors)
+        return result
 
     previous_notices = state["notices"] if state else {}
     working = empty_state()
@@ -506,10 +551,13 @@ def run_once(transport, config):
     seeding = state is None and not archive
 
     updated = {notice_key(notice): was_update for notice, was_update in changes}
+    document_errors = {}
     for notice, _ in publication_order(
         [(notice, notice_key(notice) in updated) for notice in notices]
     ):
         key = notice_key(notice)
+        if key in attachment_errors:
+            continue
         current = next_state["notices"][key]
         if key in updated and working["sent_messages"].get(key) != current:
             text = format_message(
@@ -530,18 +578,26 @@ def run_once(transport, config):
             pdf_urls = [notice.get("document_url")] + list(notice.get("attachment_urls") or [])
             pdf_urls = list(dict.fromkeys(url for url in pdf_urls if url))
             missing = [url for url in pdf_urls if url not in working["sent_documents"]]
+        document_failed = False
         for url in missing:
-            publish_document(
-                transport,
-                config["document_base"],
-                config["chat_id"],
-                url,
-                document_caption(notice),
-            )
+            try:
+                publish_document(
+                    transport,
+                    config["document_base"],
+                    config["chat_id"],
+                    url,
+                    document_caption(notice),
+                )
+            except (OSError, RuntimeError, ValueError) as error:
+                document_errors[key] = str(error)
+                document_failed = True
+                break
             working["sent_documents"][url] = key
             save_state(config["state_path"], working)
 
         # Every required document succeeded, so this fingerprint is safe to commit.
+        if document_failed:
+            continue
         if working["notices"].get(key) != current:
             working["notices"][key] = current
             working["attachments"][key] = attachments[key]
@@ -551,7 +607,12 @@ def run_once(transport, config):
     if not archive:
         write_index(config["index_dir"], build_index(notices))
     save_state(config["state_path"], working)
-    return {"notices": len(notices), "published": published, "dry_run": False}
+    result = {"notices": len(notices), "published": published, "dry_run": False}
+    if attachment_errors:
+        result["attachment_errors"] = len(attachment_errors)
+    if document_errors:
+        result["document_errors"] = len(document_errors)
+    return result
 
 
 def publish_message(transport, telegram_url, chat_id, text):

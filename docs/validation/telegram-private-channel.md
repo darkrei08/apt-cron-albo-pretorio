@@ -32,9 +32,10 @@ Record every result as PASS, FAIL or NOT RUN. A FAIL is only acceptable with a n
 follow-up ticket.
 
 **Historical scope.** The PASS results below were recorded on 2026-11-26 against the plain-text
-message format, before the current HTML format (ADR 0009), before `sent_messages` and before
-`--backfill`. They do not validate the current tree. V2 must be rerun because the historical state
-schema predates `sent_messages`, and V4 must be rerun because the message layout changed.
+message format, before the current HTML format (ADR 0009), before `sent_messages`, before
+`--backfill` and before the all-attachment contract. They do not validate the current tree. V2, V4
+and V5 must be rerun because the state schema, message layout, archive mode and attachment contract
+changed.
 
 ## V1 — Read-only dry run
 
@@ -70,8 +71,9 @@ current schema.
 Make one already-seeded notice look new by removing its key from the `notices` map in
 `$APT_STATE_PATH` (edit the JSON; keep the rest of the file intact), then repeat the V2 command.
 
-Expected: one HTML-formatted message plus one document message per official PDF for that notice;
-`sent_documents` gains one entry per document URL; index files regenerated.
+Expected: one HTML-formatted message plus one document message for the published PDF and every
+downloadable attachment for that notice; `sent_documents` gains one entry per document URL; index
+files regenerated.
 
 Result: HISTORICAL PASS for the previous plain-text format; current HTML execution is not recorded.
 
@@ -84,8 +86,8 @@ Check against the message from V3:
    `_act_headline` in `apt_cron.py`.
 2. The second line is the underlined identity `<u>Atto <number>/<year></u>`.
 3. The visible block follows with the translated title, publication, expiry and optional document
-   dates, the category and sector hashtags, the status, then labelled official and PDF links when
-   documents exist.
+   dates, the category and sector hashtags, the status, then labelled official, PDF and attachment
+   links when documents exist.
 4. Every remaining non-empty public source field appears as a `Label: value` line inside a single
    expandable `<blockquote expandable>` (ADR 0005). When the source has no expiry, the quote starts
    with the tested Italian unknown-expiry marker.
@@ -103,28 +105,27 @@ repository operator must rerun V4 in the private validation channel before the r
 
 ## V5 — Document delivery as uploaded bytes
 
-1. A document message arrives for each official PDF (`documentoUnico` plus PDF attachments).
-2. Opening the document works. The script fetches the PDF into memory and uploads the bytes in a
-   multipart `sendDocument` body (`publish_document` and `multipart_body` in `apt_cron.py`,
+1. A document message arrives for the published PDF (`documentoUnico`) and every downloadable
+   attachment, including non-PDF files.
+2. Opening each document works. The script fetches each source file into memory and uploads the bytes
+   in a multipart `sendDocument` body (`publish_document` and `multipart_body` in `apt_cron.py`,
    transport `UrllibTransport.send_document`), so Telegram no longer fetches the source URL
    and an expiring source URL shows up as a fetch error in the run, not as a document Telegram could
    not open. This replaces the previous URL hand-off, which failed live with
    `400 Bad Request: failed to get HTTP URL content`.
-3. File name and type are those of the source (`notice.pdf` style) or `document.pdf` when the source
-   URL carries no file name (`document_filename`); content type is
-   `application/pdf`.
+3. File name and type are those of the source (`notice.pdf` or `attachment.png` style) or
+   `document.pdf` when the source URL carries no file name (`document_filename`); multipart content
+   type is inferred from the filename and falls back to `application/octet-stream`.
 4. The largest real notice PDF is accepted.
    - **PDF size check.** The upload is bounded at 50 MB (`DOCUMENT_MAX_BYTES`).
      Recorded largest observed PDF: 9.55 MB. A PDF above the bound is rejected before upload and
      fails the run with exit code `1`, as the unit suite proves for the boundary.
-5. Non-PDF attachments are never sent. The local unit test proves that `fetch_attachments` keeps only
-   PDF MIME types and its fixture includes an `image/png` entry. In the live channel this item remains
-   NOT RUN unless a real notice with a non-PDF attachment is observed and no document message appears
-   for it (`fetch_attachments`). If no such notice exists during validation, mark this item
-   NOT RUN and record it as accepted non-applicable with the repository operator as named owner; the
-   release gate allows that disposition explicitly.
+5. Non-PDF attachments are sent when the source exposes a safe downloadable URL. Confirm a selected
+   notice with a non-PDF attachment arrives in the chat, retains its source filename/type, and is
+   recorded in `sent_documents`. If no such notice exists, record the item as NOT RUN with the
+   repository operator as owner and repeat it when one becomes available.
 
-Result: HISTORICAL PASS (PDF upload) for the plain-text run; V5.5 NOT RUN / accepted non-applicable: no live non-PDF attachment was observed in the selected notice
+Result: HISTORICAL PASS for PDF upload only; current all-attachment delivery is NOT RUN.
 
 ## V6 — Caption bound
 
@@ -191,15 +192,17 @@ Result: HISTORICAL PASS for the plain-text run; rerun against the current tree.
 ## V9 — Record and hand off
 
 - [ ] Current release candidate has every core item at PASS, or an accepted non-applicable result
-      with a named owner. V2 and V4 must be rerun for the current schema and HTML format.
+      with a named owner. V2, V3, V4, V5 and V8 must be rerun against the current release
+      candidate for the current schema, HTML format, all-attachment contract and configuration.
 - [x] Historical evidence captured: the message text, document names, largest PDF size (9.55 MB),
       and exit codes of V1, V2 and V8.
-- [ ] The current HTML rendering is accepted in the release evidence after the new V4 run.
+- [ ] The current HTML rendering and all-attachment delivery are accepted in release evidence after
+      the new V4/V5 runs.
 - [x] The local env file was deleted after the historical check; no token was written into this file
       or any commit.
 
-Result: HOLD for the current HTML release candidate. The repository operator must rerun V2 and V4,
-update this record and rotate the token that was pasted into the conversation before production.
+Result: HOLD for the current release candidate. The repository operator must rerun V2, V3, V4, V5
+and V8, update this record and rotate the token that was pasted into the conversation before production.
 
 ## Known limits of this checklist
 

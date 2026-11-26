@@ -148,6 +148,11 @@ class ParseSourceResponseTest(unittest.TestCase):
         self.assertNotIn("NOT IN OUTPUT", json.dumps(notices))
         self.assertNotIn("ALSO NOT IN OUTPUT", json.dumps(notices))
 
+    def test_rejects_missing_or_malformed_results(self):
+        for response in ({}, {"results": None}, {"results": ["not an object"]}):
+            with self.subTest(response=response), self.assertRaises(RuntimeError):
+                apt_cron.parse_source_response(response)
+
 
 def quoted_part(message):
     return message.split(apt_cron.QUOTE_OPEN, 1)[1].split(apt_cron.QUOTE_CLOSE, 1)[0]
@@ -383,6 +388,18 @@ class FetchNoticesTest(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             apt_cron.fetch_notices(transport, "https://example.test/filter", "2026-11-25", "1", 20)
 
+    def test_archive_requires_a_valid_total_page_count(self):
+        for response in ({"results": []}, {"results": [], "totalPages": 0}, {"results": [], "totalPages": "1"}):
+            with self.subTest(response=response), self.assertRaises(RuntimeError):
+                apt_cron.fetch_notices(
+                    FakeTransport(response),
+                    "https://example.test/filter",
+                    "2026-11-25",
+                    "1",
+                    20,
+                    archive=True,
+                )
+
 
 class PagedSourceTransport:
     def __init__(self, pages):
@@ -569,6 +586,20 @@ class SequenceTransport:
         return self.telegram_response
 
 
+class FailingAttachmentTransport(SequenceTransport):
+    def request(self, method, url, payload=None):
+        if url.endswith("/api/pap/files/791962"):
+            raise RuntimeError("temporary attachment failure")
+        return super().request(method, url, payload)
+
+
+class FailingArchiveDocumentTransport(SequenceTransport):
+    def send_document(self, url, fields, filename, content):
+        if fields.get("caption") == "PDF ufficiale: Atto 243/2026":
+            raise RuntimeError("temporary document failure")
+        return super().send_document(url, fields, filename, content)
+
+
 def run_config(state_path):
     return {
         "source_url": "https://example.test/filter",
@@ -694,6 +725,7 @@ class RunOnceTest(unittest.TestCase):
 class BackfillHeadlineTest(unittest.TestCase):
     def test_backfill_labels_the_whole_history_as_archived(self):
         response = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        response["totalPages"] = 1
         transport = SequenceTransport(response, {"ok": True, "result": {"message_id": 1}})
         with tempfile.TemporaryDirectory() as directory:
             config = run_config(Path(directory) / "state.json")
@@ -711,6 +743,7 @@ class BackfillHeadlineTest(unittest.TestCase):
 
     def test_backfill_says_expired_when_the_expiry_is_before_today(self):
         response = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        response["totalPages"] = 1
         response["results"][0]["cntDataFinePubblicazione"] = "2026-11-01"
         response["results"][1]["cntDataInizioPubblicazione"] = "2026-11-20"
         transport = SequenceTransport(response, {"ok": True, "result": {"message_id": 1}})
@@ -833,9 +866,79 @@ class PartialFailureTest(unittest.TestCase):
 
 class BackfillTest(unittest.TestCase):
     def backfill_transport(self, response):
+        source_response = dict(response)
+        source_response.setdefault("totalPages", 1)
         return SequenceTransport(
-            response, {"ok": True, "result": {"message_id": 1}}, {"results": []}
+            source_response, {"ok": True, "result": {"message_id": 1}}, {"results": []}
         )
+
+    def test_backfill_publishes_notices_seeded_by_a_normal_run(self):
+        response = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        response["totalPages"] = 1
+        transport = SequenceTransport(response, {"ok": True, "result": {"message_id": 1}})
+        with tempfile.TemporaryDirectory() as directory:
+            config = run_config(Path(directory) / "state.json")
+            apt_cron.run_once(transport, config)
+            config["archive"] = True
+            transport.calls.clear()
+
+            stats = apt_cron.run_once(transport, config)
+            messages = [
+                call["payload"]["text"]
+                for call in transport.calls
+                if "sendMessage" in call["url"]
+            ]
+            state = apt_cron.load_state(config["state_path"])
+
+        self.assertEqual(stats["published"], 2)
+        self.assertEqual(
+            [message.splitlines()[0] for message in messages],
+            ["<b>Atto archiviato APT Basilicata</b>", "<b>Atto archiviato APT Basilicata</b>"],
+        )
+        self.assertEqual(set(state["sent_messages"]), {"791962", "791960"})
+
+    def test_backfill_continues_when_one_attachment_lookup_fails(self):
+        response = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        response["totalPages"] = 1
+        transport = FailingAttachmentTransport(response, {"ok": True, "result": {"message_id": 1}})
+        with tempfile.TemporaryDirectory() as directory:
+            config = run_config(Path(directory) / "state.json")
+            config["archive"] = True
+
+            stats = apt_cron.run_once(transport, config)
+            state = apt_cron.load_state(config["state_path"])
+            messages = [call for call in transport.calls if "sendMessage" in call["url"]]
+
+        self.assertEqual(stats, {"notices": 2, "published": 1, "dry_run": False, "attachment_errors": 1})
+        self.assertEqual(len(messages), 1)
+        self.assertNotIn("791962", state["notices"])
+        self.assertEqual(set(state["sent_messages"]), {"791960"})
+
+    def test_backfill_continues_when_one_document_upload_fails_and_retries_it(self):
+        response = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        response["totalPages"] = 1
+        transport = FailingArchiveDocumentTransport(response, {"ok": True, "result": {"message_id": 1}})
+        with tempfile.TemporaryDirectory() as directory:
+            config = run_config(Path(directory) / "state.json")
+            config["archive"] = True
+
+            stats = apt_cron.run_once(transport, config)
+            state = apt_cron.load_state(config["state_path"])
+            transport.calls.clear()
+
+            retry_transport = SequenceTransport(response, {"ok": True, "result": {"message_id": 1}})
+            retry_stats = apt_cron.run_once(retry_transport, config)
+            retry_state = apt_cron.load_state(config["state_path"])
+            retry_messages = [call for call in retry_transport.calls if "sendMessage" in call["url"]]
+
+        self.assertEqual(stats["published"], 2)
+        self.assertEqual(stats["document_errors"], 1)
+        self.assertEqual(set(state["sent_messages"]), {"791962", "791960"})
+        self.assertNotIn("791960", state["notices"])
+        self.assertIn("791962", state["notices"])
+        self.assertEqual(retry_stats["published"], 0)
+        self.assertEqual(retry_messages, [])
+        self.assertEqual(set(retry_state["notices"]), {"791962", "791960"})
 
     def test_backfill_publishes_the_archive_oldest_first_without_writing_the_index(self):
         response = {
@@ -1120,6 +1223,25 @@ class PdfDeliveryTest(unittest.TestCase):
         )
 
         self.assertEqual(links, {"document_url": None, "attachment_urls": ["https://example.test/a.pdf"]})
+
+    def test_rejects_malformed_attachment_results(self):
+        for response in (
+            {},
+            {"results": None},
+            {"results": ["not an object"]},
+            {"results": [{"documentoUnico": []}]},
+            {"results": [{"documentoUnico": False}]},
+            {"results": [{"documentoUnico": 0}]},
+            {"results": [{"files": None}]},
+            {"results": [{"files": ""}]},
+            {"results": [{"files": False}]},
+            {"results": [{"files": 0}]},
+            {"results": [{"files": "bad"}]},
+        ):
+            with self.subTest(response=response), self.assertRaises(RuntimeError):
+                apt_cron.fetch_attachments(
+                    FakeTransport(response), "https://example.test/api/pap/files", 791962
+                )
 
     def test_fetches_the_pdf_bytes_and_uploads_them_as_a_document(self):
         transport = DocumentTransport()
@@ -1739,11 +1861,12 @@ class InMemoryDocumentDeliveryTest(unittest.TestCase):
             response["results"][0]["cntTitle"] = "Titolo aggiornato"
             transport.calls.clear()
 
-            with mock.patch.object(apt_cron, "DOCUMENT_MAX_BYTES", 10), self.assertRaises(RuntimeError):
-                apt_cron.run_once(transport, config)
+            with mock.patch.object(apt_cron, "DOCUMENT_MAX_BYTES", 10):
+                stats = apt_cron.run_once(transport, config)
             documents = [call for call in transport.calls if "sendDocument" in call["url"]]
             state = apt_cron.load_state(config["state_path"])
 
+        self.assertEqual(stats["document_errors"], 1)
         self.assertEqual(documents, [])
         self.assertEqual(state["sent_documents"], {})
 
@@ -1926,8 +2049,7 @@ class PdfRetryTest(unittest.TestCase):
             source["results"][0]["cntTitle"] += " aggiornato"
             transport.calls.clear()
 
-            with self.assertRaises(RuntimeError):
-                apt_cron.run_once(transport, config)
+            failed_stats = apt_cron.run_once(transport, config)
             failed_calls = [call for call in transport.calls if "api.telegram.org" in call["url"]]
             failed_state = apt_cron.load_state(config["state_path"])
             transport.calls.clear()
@@ -1949,6 +2071,7 @@ class PdfRetryTest(unittest.TestCase):
             failed_state["notices"]["799999"],
         )
 
+        self.assertEqual(failed_stats["document_errors"], 1)
         self.assertEqual(stats["published"], 0)
         self.assertEqual([call for call in recovered if "sendMessage" in call["url"]], [])
         self.assertEqual(
