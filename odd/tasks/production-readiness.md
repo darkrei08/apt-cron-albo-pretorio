@@ -20,6 +20,7 @@ Implementation stays bounded by the map; operator-only evidence remains blocked 
 - T3 (S1,S2,S7): Select the production host, index destination and operational owner from ticket 26; route: operator decision; blocked until host details exist; commit: N/A.
 - T4 (S1,S2,S5,S7): Rotate credentials, define protected paths, install, validate, monitor and rehearse rollback through tickets 28-31; route: release/sre/security; blocked by T3 and operator-only actions; commit: pending.
 - T5 (S1,S2,S5,S6,S7): Make the final release-gate decision from ticket 32 only after T1-T4 evidence; route: release + independent verifier; commit: pending.
+- T6 (S1,S2,S7): Provide a concrete installation, validation, monitoring and rollback runbook for tickets 28-31 without claiming host execution; route: release/SRE documentation; commit: pending.
 
 ## Log
 
