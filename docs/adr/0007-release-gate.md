@@ -48,7 +48,7 @@ is not a release.
    so that run refers to them. Local test runs do not satisfy this part.
 3. **Private-channel validation passed.** `docs/validation/telegram-private-channel.md` has every
    core item at PASS or an explicitly accepted FAIL with a named owner, covering plain-text render,
-   official link, `sendDocument` by URL, PDF size and caption bound. A NOT RUN / non-applicable
+   official link, in-memory PDF upload, PDF size and caption bound. A NOT RUN / non-applicable
    disposition with a named owner is allowed only for an item that genuinely cannot apply, such as
    the non-PDF attachment check when no such attachment exists.
 4. **Operational readiness confirmed.** The secret store, host timezone, schedule, failure alert and
