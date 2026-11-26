@@ -1,5 +1,221 @@
 # APT Basilicata public notices index
 
+- 2026-11-26 - Affidamento diretto ai sensi dell'art. 50, comma 1, lettera b) del D.Lgs. N. 36 del 31/03/2023 alla ditta "Lux Service di Antonella Scavone di Potenza" per interventi di manutenzione siepi di lauroceraso presso area parcheggio per il triennio 207/2029
+  - Atto: 253/2026
+  - ID: 793331
+  - Categoria: Delibera del Direttore Generale
+  - Settore: UFFICIO AMMINISTRAZIONE
+  - Scade il: 2026-12-11
+  - Stato: PUBBLICATO
+  - Tipo oggetto: 6500
+  - Oggetto radice: 793331
+  - Tipo oggetto radice: 6500
+  - Anno RPAP: 2026
+  - Data documento di origine: 2026-11-26
+  - Data numero PAP: 2026-11-26
+  - Ora numero PAP: 05:47:03
+  - Data numero RPAP: 2026-11-26
+  - Ora numero RPAP: 05:46:48
+  - Durata pubblicazione: 15
+  - Natura atto: 200152
+  - Numero documento di origine: 252
+  - Numero RPAP: 253
+  - Codice settore proponente: 270981
+  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/793331)
+  - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/793331)
+  - [Allegato PDF](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/793331/6b0862821a1c1217b9ac6286/Del.n.252_Affidamento_manutenzione_siepi_area_parcheggio_APT.pdf)
+- 2026-11-26 - Attivazione Convenzione per tirocini "curriculari" con l'Università degli studi di Bergamo
+  - Atto: 252/2026
+  - ID: 793329
+  - Categoria: Delibera del Direttore Generale
+  - Settore: UFFICIO AMMINISTRAZIONE
+  - Scade il: 2026-12-11
+  - Stato: PUBBLICATO
+  - Tipo oggetto: 6500
+  - Oggetto radice: 793329
+  - Tipo oggetto radice: 6500
+  - Anno RPAP: 2026
+  - Data documento di origine: 2026-11-26
+  - Data numero PAP: 2026-11-26
+  - Ora numero PAP: 05:46:10
+  - Data numero RPAP: 2026-11-26
+  - Ora numero RPAP: 05:45:54
+  - Durata pubblicazione: 15
+  - Natura atto: 200152
+  - Numero documento di origine: 251
+  - Numero RPAP: 252
+  - Codice settore proponente: 270981
+  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/793329)
+  - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/793329)
+  - [Allegato PDF](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/793329/6b08624d77bbd936da87cd77/Del.n.251_Attivazione_convenzione_universit__di_Bergamo.pdf)
+- 2026-11-26 - Affidamento servizio di vigilanza e accoglienza e fornitura dei sistemi di sicurezza per la mostra "Ercolano. L'arte di vivere", in programma dal 23 dicembre 2026 al 23 giugno 2027 presso la Chiesa di San Domenico a Venosa. - Security Department Srl
+  - Atto: 251/2026
+  - ID: 793327
+  - Categoria: Delibera del Direttore Generale
+  - Settore: UFFICIO AMMINISTRAZIONE
+  - Scade il: 2026-12-11
+  - Stato: PUBBLICATO
+  - Tipo oggetto: 6500
+  - Oggetto radice: 793327
+  - Tipo oggetto radice: 6500
+  - Anno RPAP: 2026
+  - Data documento di origine: 2026-11-26
+  - Data numero PAP: 2026-11-26
+  - Ora numero PAP: 05:44:52
+  - Data numero RPAP: 2026-11-26
+  - Ora numero RPAP: 05:44:30
+  - Durata pubblicazione: 15
+  - Natura atto: 200152
+  - Numero documento di origine: 250
+  - Numero RPAP: 251
+  - Codice settore proponente: 270981
+  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/793327)
+  - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/793327)
+  - [Allegato PDF](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/793327/6b0861fe1ef3d1378cd7132f/Del.n.250_Affidamento_servizio_vigilanza_mostra_Ercolano_a_Venosa.pdf)
+- 2026-11-26 - D.G.R. 423/2025 - "P.A.R.T.I. Basilicata! Piano di Azione per la Ripresa del Turismo in Basilicata" biennio 2025 - 2026 [Azione 1.2 - Piano comunicazione rilancio e media planning] Affidamento servizi di realizzazione di azioni promopubblicitarie nell'ambito della campagna autunno-inverno 2026.
+  - Atto: 250/2026
+  - ID: 793325
+  - Categoria: Delibera del Direttore Generale
+  - Settore: UFFICIO AMMINISTRAZIONE
+  - Scade il: 2026-12-11
+  - Stato: PUBBLICATO
+  - Tipo oggetto: 6500
+  - Oggetto radice: 793325
+  - Tipo oggetto radice: 6500
+  - Anno RPAP: 2026
+  - Data documento di origine: 2026-11-26
+  - Data numero PAP: 2026-11-26
+  - Ora numero PAP: 05:43:53
+  - Data numero RPAP: 2026-11-26
+  - Ora numero RPAP: 05:43:38
+  - Durata pubblicazione: 15
+  - Natura atto: 200152
+  - Numero documento di origine: 249
+  - Numero RPAP: 250
+  - Codice settore proponente: 270981
+  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/793325)
+  - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/793325)
+  - [Allegato PDF](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/793325/6b0861c3291a15273941ffec/Del.n.249_Affidamento_servizi_promopubblicitari.pdf)
+- 2026-11-26 - Contributo ANAC su procedure di gara sopra i 40 mila euro.
+  - Atto: 249/2026
+  - ID: 793323
+  - Categoria: Delibera del Direttore Generale
+  - Settore: UFFICIO AMMINISTRAZIONE
+  - Scade il: 2026-12-11
+  - Stato: PUBBLICATO
+  - Tipo oggetto: 6500
+  - Oggetto radice: 793323
+  - Tipo oggetto radice: 6500
+  - Anno RPAP: 2026
+  - Data documento di origine: 2026-11-26
+  - Data numero PAP: 2026-11-26
+  - Ora numero PAP: 05:42:58
+  - Data numero RPAP: 2026-11-26
+  - Ora numero RPAP: 05:42:43
+  - Durata pubblicazione: 15
+  - Natura atto: 200152
+  - Numero documento di origine: 248
+  - Numero RPAP: 249
+  - Codice settore proponente: 270981
+  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/793323)
+  - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/793323)
+  - [Allegato PDF](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/793323/6b08618c50b93f028259ff4f/Del.n.248_Contributo_ANAC.pdf)
+- 2026-11-26 - Spese telepass per canone, pedaggi e parcheggi.
+  - Atto: 248/2026
+  - ID: 793321
+  - Categoria: Delibera del Direttore Generale
+  - Settore: UFFICIO AMMINISTRAZIONE
+  - Scade il: 2026-12-11
+  - Stato: PUBBLICATO
+  - Tipo oggetto: 6500
+  - Oggetto radice: 793321
+  - Tipo oggetto radice: 6500
+  - Anno RPAP: 2026
+  - Data documento di origine: 2026-11-26
+  - Data numero PAP: 2026-11-26
+  - Ora numero PAP: 05:42:04
+  - Data numero RPAP: 2026-11-26
+  - Ora numero RPAP: 05:41:45
+  - Durata pubblicazione: 15
+  - Natura atto: 200152
+  - Numero documento di origine: 247
+  - Numero RPAP: 248
+  - Codice settore proponente: 270981
+  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/793321)
+  - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/793321)
+  - [Allegato PDF](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/793321/6b0861551a1c1217b9ac60f0/Del.n.247_Spese_telepass.pdf)
+- 2026-11-26 - Impegno di spesa per gestione Carte di Credito
+  - Atto: 247/2026
+  - ID: 793319
+  - Categoria: Delibera del Direttore Generale
+  - Settore: UFFICIO AMMINISTRAZIONE
+  - Scade il: 2026-12-11
+  - Stato: PUBBLICATO
+  - Tipo oggetto: 6500
+  - Oggetto radice: 793319
+  - Tipo oggetto radice: 6500
+  - Anno RPAP: 2026
+  - Data documento di origine: 2026-11-26
+  - Data numero PAP: 2026-11-26
+  - Ora numero PAP: 05:41:06
+  - Data numero RPAP: 2026-11-26
+  - Ora numero RPAP: 05:40:47
+  - Durata pubblicazione: 15
+  - Natura atto: 200152
+  - Numero documento di origine: 246
+  - Numero RPAP: 247
+  - Codice settore proponente: 270981
+  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/793319)
+  - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/793319)
+  - [Allegato PDF](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/793319/6b08611c50b93f028259feaf/Del.n.246_Impegno_spesa_gestione_carte_di_credito.pdf)
+- 2026-11-26 - Spese condominiali Sedi APT Potenza e Matera.
+  - Atto: 246/2026
+  - ID: 793315
+  - Categoria: Delibera del Direttore Generale
+  - Settore: UFFICIO AMMINISTRAZIONE
+  - Scade il: 2026-12-11
+  - Stato: PUBBLICATO
+  - Tipo oggetto: 6500
+  - Oggetto radice: 793315
+  - Tipo oggetto radice: 6500
+  - Anno RPAP: 2026
+  - Data documento di origine: 2026-11-26
+  - Data numero PAP: 2026-11-26
+  - Ora numero PAP: 05:40:08
+  - Data numero RPAP: 2026-11-26
+  - Ora numero RPAP: 05:39:51
+  - Durata pubblicazione: 15
+  - Natura atto: 200152
+  - Numero documento di origine: 245
+  - Numero RPAP: 246
+  - Codice settore proponente: 270981
+  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/793315)
+  - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/793315)
+  - [Allegato PDF](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/793315/6b0860e350b93f028259fe2a/Del.n.245_Spese_condominiali.pdf)
+- 2026-11-26 - Missioni varie e partecipazione ad eventi, manifestazioni promozionali e missioni di contatto del Direttore Generale, degli altri Organi dell'APT e del personale dipendente e collaboratori
+  - Atto: 245/2026
+  - ID: 793313
+  - Categoria: Delibera del Direttore Generale
+  - Settore: UFFICIO AMMINISTRAZIONE
+  - Scade il: 2026-12-11
+  - Stato: PUBBLICATO
+  - Tipo oggetto: 6500
+  - Oggetto radice: 793313
+  - Tipo oggetto radice: 6500
+  - Anno RPAP: 2026
+  - Data documento di origine: 2026-11-26
+  - Data numero PAP: 2026-11-26
+  - Ora numero PAP: 05:39:13
+  - Data numero RPAP: 2026-11-26
+  - Ora numero RPAP: 05:38:58
+  - Durata pubblicazione: 15
+  - Natura atto: 200152
+  - Numero documento di origine: 244
+  - Numero RPAP: 245
+  - Codice settore proponente: 270981
+  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/793313)
+  - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/793313)
+  - [Allegato PDF](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/793313/6b0860ac291a15273941fe6f/Del.n.244_Missioni_varie_e_partecipazioni_a_manifestazioni.pdf)
 - 2026-11-25 - Affidamento diretto ai sensi dell'art. 50, comma 1, lett.b) del D.Lgs. N. 36/2023 del servizio di riadattamento sala espositiva e installazione allestimento "Motherland-Patrimonio Vivo: l'arte di diventare Basilicata" presso "OpenSpace Basilicata" di Matera, in favore dell'operatore economico Quadrum Srl
   - Atto: 244/2026
   - ID: 791962
@@ -264,75 +480,3 @@
   - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/787428)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/787428)
   - [Allegato PDF](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/787428/6afd867d566d874d84ec8c0f/Del.n.233_Fondo_Four_Seasons_14__liquidazione_contributi_turismo_scolastico_ecc..pdf)
-- 2026-11-16 - Affidamento diretto ai sensi dell'art. 50, comma 1, lettera b) del D.Lgs. N. 36 del 31/03/2023 alla ditta Zucchetti Digital Solution srl-Business Unit Ifin Sistemi per il servizio di conservazione digitale a norma delle Delibere e Contratti e automatizzazione DURC.
-  - Atto: 233/2026
-  - ID: 784987
-  - Categoria: Delibera del Direttore Generale
-  - Settore: UFFICIO AMMINISTRAZIONE
-  - Scade il: 2026-12-01
-  - Stato: PUBBLICATO
-  - Tipo oggetto: 6500
-  - Oggetto radice: 784987
-  - Tipo oggetto radice: 6500
-  - Anno RPAP: 2026
-  - Data documento di origine: 2026-11-13
-  - Data numero PAP: 2026-11-16
-  - Ora numero PAP: 08:34:33
-  - Data numero RPAP: 2026-11-16
-  - Ora numero RPAP: 08:34:17
-  - Durata pubblicazione: 15
-  - Natura atto: 200152
-  - Numero documento di origine: 232
-  - Numero RPAP: 233
-  - Codice settore proponente: 270981
-  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/784987)
-  - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/784987)
-  - [Allegato PDF](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/784987/6afab203ad380a665b2c4b44/Del.n.232_Affidamento_ditta_Zucchetti_Digital_Solution_servizio_conservazione_digitale.pdf)
-- 2026-11-13 - Piano Integrato di Attività e Organizzazione. PIAO 2026-2028. Aggiornamento del PTFP 2026-2028.  Approvazione. 
-  - Atto: 232/2026
-  - ID: 784703
-  - Categoria: Delibera del Direttore Generale
-  - Settore: UFFICIO AMMINISTRAZIONE
-  - Scade il: 2026-11-28
-  - Stato: PUBBLICATO
-  - Tipo oggetto: 6500
-  - Oggetto radice: 784703
-  - Tipo oggetto radice: 6500
-  - Anno RPAP: 2026
-  - Data documento di origine: 2026-11-13
-  - Data numero PAP: 2026-11-13
-  - Ora numero PAP: 12:13:05
-  - Data numero RPAP: 2026-11-13
-  - Ora numero RPAP: 12:12:47
-  - Durata pubblicazione: 15
-  - Natura atto: 200152
-  - Numero documento di origine: 231
-  - Numero RPAP: 232
-  - Codice settore proponente: 270981
-  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/784703)
-  - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/784703)
-  - [Allegato PDF](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/784703/6af6f0bb92e806617a6dd61c/Del.n.231_PIAO_2026-2028_aggiornamento_del_PTFP-approvazione.pdf)
-- 2026-11-13 - Progetto P.A.R.T.I. Basilicata 2025-2026- [Azione 1.3 Realizzazione e/o affiancamento a iniziative ed eventi di rilievo nazionale e internazionale] - D.G.R. 423/2025 - Contributi valorizzazione Basilicata Turistica - 9ª Liquidazione - sostegno ad iniziative ed eventi finalizzati alla valòorizzazione della Basilicata Turistica- Lega Navale Italiana Sezione di Matera-Magna Grecia: € 10.000,00 - Cantinarte Aps: € 6.999,99 - Toursiexperience Aps: € 3.500,00
-  - Atto: 231/2026
-  - ID: 784701
-  - Categoria: Delibera del Direttore Generale
-  - Settore: UFFICIO AMMINISTRAZIONE
-  - Scade il: 2026-11-28
-  - Stato: PUBBLICATO
-  - Tipo oggetto: 6500
-  - Oggetto radice: 784701
-  - Tipo oggetto radice: 6500
-  - Anno RPAP: 2026
-  - Data documento di origine: 2026-11-13
-  - Data numero PAP: 2026-11-13
-  - Ora numero PAP: 12:01:17
-  - Data numero RPAP: 2026-11-13
-  - Ora numero RPAP: 12:00:58
-  - Durata pubblicazione: 15
-  - Natura atto: 200152
-  - Numero documento di origine: 230
-  - Numero RPAP: 231
-  - Codice settore proponente: 270981
-  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/784701)
-  - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/784701)
-  - [Allegato PDF](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/784701/6af6edf629ed4c485b191357/Del.n.230_Liquidazione_n._9_sostegno_iniziative_ed_eventi_Basilicata_Turistica.pdf)
