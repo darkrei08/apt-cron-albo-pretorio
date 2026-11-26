@@ -14,3 +14,4 @@ __pycache__/
 # Local credentials: only the placeholder example is committed
 .env
 .env.*
+apt-telegram-test.local
