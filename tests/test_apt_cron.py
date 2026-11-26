@@ -642,7 +642,7 @@ class UrllibDocumentUploadTest(unittest.TestCase):
         headers = {name.lower(): value for name, value in request.header_items()}
         self.assertTrue(result["ok"])
         self.assertEqual(request.get_method(), "POST")
-        self.assertEqual(captured["timeout"], 20)
+        self.assertEqual(captured["timeout"], apt_cron.DOCUMENT_UPLOAD_TIMEOUT)
         self.assertTrue(headers["content-type"].startswith("multipart/form-data; boundary="))
         boundary = headers["content-type"].split("boundary=", 1)[1].encode("utf-8")
         self.assertTrue(request.data.startswith(b"--" + boundary))

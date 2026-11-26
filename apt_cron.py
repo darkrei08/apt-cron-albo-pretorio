@@ -13,6 +13,7 @@ from urllib.request import Request, urlopen
 
 
 HTTP_TIMEOUT = 20
+DOCUMENT_UPLOAD_TIMEOUT = 120
 USER_AGENT = "apt-cron/1.0"
 # Telegram's documented document upload limit, also the in-memory fetch bound.
 DOCUMENT_MAX_BYTES = 50 * 1024 * 1024
@@ -523,7 +524,7 @@ class UrllibTransport:
             },
             method="POST",
         )
-        with urlopen(request, timeout=HTTP_TIMEOUT) as response:
+        with urlopen(request, timeout=DOCUMENT_UPLOAD_TIMEOUT) as response:
             return json.loads(response.read().decode("utf-8"))
 
 
