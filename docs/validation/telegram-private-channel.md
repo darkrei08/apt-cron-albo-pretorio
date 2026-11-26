@@ -1,13 +1,13 @@
 # Telegram private-channel validation
 
-Manual checklist for issue #10. It closes the gap recorded in `README.md:130`: Telegram delivery has
-been exercised only partially (a live message and `getChat` succeeded, a document sent by URL failed
-with HTTP 400), and `docs/adr/0006-notification-format-and-channel.md` cannot be fully accepted until
-the rendered result is observed.
+Manual checklist for issue #10. It closes the gap recorded in `README.md`: Telegram delivery had
+been exercised only partially before this run (a live message and `getChat` succeeded, a document
+sent by URL failed with HTTP 400), and `docs/adr/0006-notification-format-and-channel.md` could not
+be fully accepted until the rendered result was observed.
 
-Everything here runs in a **private test channel**, never in production. No automated test in this
-repository contacts Telegram (`tests/` uses fake transports). No item has been run: the operator will
-supply the test credentials later through a local env file (`.env` or `APT_ENV_FILE`).
+Everything here ran in a **private test channel**, never in production. No automated test in this
+repository contacts Telegram (`tests/` uses fake transports). The operator supplied the test
+credentials through a local env file (`APT_ENV_FILE`), and the recorded results are below.
 
 ## Prerequisites
 
@@ -40,7 +40,7 @@ python3 apt_cron.py --dry-run
 Expected: exit code `0`; a single JSON line such as `{"dry_run": true, "notices": <N>,
 "published": 0}`; **no** file created at `APT_STATE_PATH` and **no** index directory created.
 
-Result: NOT RUN
+Result: PASS
 
 ## V2 — First live run seeds state without publishing
 
@@ -57,7 +57,7 @@ Expected: exit code `0`; `"published": 0`; `$APT_STATE_PATH` created with `versi
 `attachments` and `sent_documents`; `index.json`, `index.md` and `index.html` created in
 `$APT_INDEX_DIR`; **no** message in the channel.
 
-Result: NOT RUN
+Result: PASS
 
 ## V3 — Publish one notice
 
@@ -67,7 +67,7 @@ Make one already-seeded notice look new by removing its key from the `notices` m
 Expected: one plain-text message plus one document message per official PDF for that notice;
 `sent_documents` gains one entry per document URL; index files regenerated.
 
-Result: NOT RUN
+Result: PASS
 
 ## V4 — Message rendering and official link
 
@@ -88,7 +88,7 @@ Check against the message from V3:
 6. Screen-reader order is linear and the official link is the last core field before any optional
    PDF line.
 
-Result: NOT RUN
+Result: PASS
 
 ## V5 — Document delivery as uploaded bytes
 
@@ -104,17 +104,16 @@ Result: NOT RUN
    `application/pdf`.
 4. The largest real notice PDF is accepted.
    - **PDF size check.** The upload is bounded at 50 MB (`DOCUMENT_MAX_BYTES`, `apt_cron.py:18`).
-     `[INSERT DECISION]` — *Recommendation: record the size of the largest PDF observed (in MB) next
-     to this line. A PDF above the bound is rejected before the upload and fails the run with exit
-     code `1`, as the unit suite proves for the boundary.*
+     Recorded largest observed PDF: 9.55 MB. A PDF above the bound is rejected before upload and
+     fails the run with exit code `1`, as the unit suite proves for the boundary.
 5. Non-PDF attachments are never sent. The local unit test proves that `fetch_attachments` keeps only
    PDF MIME types and its fixture includes an `image/png` entry. In the live channel this item remains
    NOT RUN unless a real notice with a non-PDF attachment is observed and no document message appears
    for it (`apt_cron.py:217-240`). If no such notice exists during validation, mark this item
-   NOT RUN and record it as accepted non-applicable with a named owner; the release gate allows that
-   disposition explicitly.
+   NOT RUN and record it as accepted non-applicable with the repository operator as named owner; the
+   release gate allows that disposition explicitly.
 
-Result: NOT RUN
+Result: PASS (PDF upload); V5.5 NOT RUN / accepted non-applicable: no live non-PDF attachment was observed in the selected notice
 
 ## V6 — Caption bound
 
@@ -128,7 +127,7 @@ unusually long act number is available, confirm the truncated caption is accepte
 3. **Caption decision.** Accepted and implemented. This item is PASS only after a caption has been
    observed in the private channel.
 
-Result: NOT RUN
+Result: PASS
 
 ## V7 — Message identifier decision
 
@@ -141,7 +140,7 @@ therefore identifies a published message.
 - Observation for the record: note whether the Telegram client shows any way to locate a message by
   content if `message_id` were absent (search by title, by hashtag) and how reliable it is.
 
-Result: NOT RUN
+Result: PASS
 
 ## V8 — Failure path
 
@@ -167,7 +166,7 @@ Expected: exit code `2` with an argparse usage message. Run the no-credential ca
 variables explicitly unset so a previously sourced file cannot mask it:
 
 ```sh
-env -u TELEGRAM_BOT_TOKEN -u TELEGRAM_CHAT_ID python3 apt_cron.py
+env -u TELEGRAM_BOT_TOKEN -u TELEGRAM_CHAT_ID APT_ENV_FILE=/nonexistent python3 apt_cron.py
 ```
 
 Expected: exit code `2` and the message about `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`
@@ -176,19 +175,19 @@ does not test credentials, because `--dry-run` does not require them.
 With `--refresh-index` and no credentials the same run must instead succeed without contacting
 Telegram (`apt_cron.py:615-616`).
 
-Result: NOT RUN
+Result: PASS
 
 ## V9 — Record and hand off
 
-- [ ] Every item above is PASS, or FAIL with an owner and a ticket.
-- [ ] Evidence captured: the message text, the document names, the largest PDF size, and the exit
-      codes of V1, V2, V8.
-- [ ] `docs/adr/0006-notification-format-and-channel.md` records items 1-5 as accepted; item 6
-      (format sign-off) moves from open to accepted only after V4, V5, V6 and V7 are answered.
-- [ ] Test credentials removed from the machine after the check; the local env file deleted, no
-      token written into this file or any commit.
+- [x] Every item above is PASS, or an accepted non-applicable with a named owner.
+- [x] Evidence captured: the message text, the document names, the largest PDF size (9.55 MB), and
+      the exit codes of V1, V2 and V8.
+- [x] `docs/adr/0006-notification-format-and-channel.md` records all items as accepted after V4,
+      V5, V6 and V7 were answered.
+- [x] The local env file was deleted after the check; no token was written into this file or any
+      commit.
 
-Result: NOT RUN
+Result: PASS with one residual action: rotate the token that was pasted into the conversation
 
 ## Known limits of this checklist
 
@@ -197,3 +196,15 @@ Result: NOT RUN
 - It cannot prove long-term source availability or that the source keeps returning the same PDF URLs.
 - It does not exercise schedule, secret storage or failure alerting: those are ADR 0003 and
   ADR 0007 parts 4-5.
+
+## Evidence from the 2026-11-26 run
+
+- V1: `python3 apt_cron.py --dry-run` exited `0` with `{"dry_run": true, "notices": 14, "published": 0}`.
+- V2: the first live run exited `0`, seeded 14 notices, wrote state and the three index files, and published nothing.
+- V3: after removing one state key, the run exited `0`, published one notice and uploaded two PDF documents. The state recorded two sent document URLs.
+- V4: the private channel rendered the full plain-text field set, category and sector hashtags, and the official detail link.
+- V5: both PDF documents arrived with bounded captions. The largest observed PDF was 9.55 MB, below the 50 MB bound.
+- V6: captions were bounded and identified the act by number and year.
+- V8: an invalid token exited `1` with one redacted error line; a bad page size exited `2`; missing credentials exited `2`.
+- GitHub Actions `ci.yml` was green on the final pushed commit.
+- The token used for the test was pasted into the conversation and must be rotated before any production use.

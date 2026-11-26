@@ -1,7 +1,7 @@
 # 0007 — Release gate for the faibtes production rollout
 
-- Status: proposed (gate not satisfied: private-channel validation and final recheck pending)
-- Decision record: GitHub issue #13 (open, blocked by issues #9, #10, #11, #12)
+- Status: defined; validation and CI evidence recorded, production installation still pending
+- Decision record: GitHub issue #13 (closed after issues #9, #10, #11 and #12)
 
 ## Context
 
@@ -29,8 +29,8 @@ packaging or ops file:
   below records what the operator chose it to mean.
 - The prerequisite decisions are recorded: secret storage, timezone, schedule ownership, failure
   alerting and overlap protection in ADR 0003, withdrawal and retention in ADR 0004, publication
-  boundary in ADR 0005, and format and channel in ADR 0006 except final sign-off. Private-channel
-  validation (issue #10) has not run.
+  boundary in ADR 0005, and format and channel including sign-off in ADR 0006. Private-channel
+  validation (issue #10) passed in the recorded run.
 
 Decisions the operator must make are marked `[INSERT DECISION]` with a recommendation.
 
@@ -81,12 +81,11 @@ Open operator inputs:
 
 - The gate cannot be passed by code quality alone: three of its five parts depend on operator
   infrastructure and on evidence from GitHub and Telegram that the repository cannot produce.
-- Part 2 stays red until the CI workflow has run on GitHub. The one live evidence now available is a
-  manual `--refresh-index` run against the source (exit code `0`, 14 notices, index files written, no
-  state file), which is not part 2 and does not replace it.
-- Part 3 depends on a checklist that has never run, so the schedule for the release is bounded by
-  operator availability and by the test credentials the operator has not supplied yet.
-- Part 1 now depends only on ADR 0006 item 6 and the live validation in part 3.
+- Part 2 passed on GitHub Actions for the final pushed commit.
+- Part 3 passed in the private channel: one notice, its full field set, two PDF documents and bounded
+  captions were observed; the non-PDF attachment check was accepted as non-applicable by the
+  repository operator because no such attachment appeared.
+- Part 1 is complete: all recorded decisions are accepted and format sign-off is accepted.
 - Rollback is limited by design: messages stay published and index history stays in Git, so rollback
   stops future publishing rather than erasing what was already published.
 - If `faibtes` turns out to require packaging (container image, unit file), that work is a new
@@ -103,11 +102,10 @@ Open operator inputs:
   installed, one live index refresh observed), `:106-113` (production checks that exist today).
 - `docs/adr/0003-production-secret-storage-and-schedule.md`, `0004-withdrawal-and-retention.md`,
   `0005-publication-boundary.md`, `0006-notification-format-and-channel.md` (the decision inputs).
-- `docs/validation/telegram-private-channel.md` (part 3 evidence format; every item NOT RUN).
+- `docs/validation/telegram-private-channel.md` (part 3 evidence; core items PASS, non-PDF attachment check accepted non-applicable).
 
 ## Not verified
 
-The GitHub Actions run count and the commit divergence recorded in Context were verified with the
-exact commands recorded there at ADR authoring time; they are not re-verified by this document and
-must be checked again at release. The `update-index` workflow has never run on GitHub Actions. No
-part of the gate has been evaluated against the real host.
+The GitHub Actions checks passed on the final pushed commit. The `update-index` workflow has not run
+on GitHub Actions, and no part of the gate has been evaluated against a production host: the map
+defines the gate, while installation remains a separate operator action.

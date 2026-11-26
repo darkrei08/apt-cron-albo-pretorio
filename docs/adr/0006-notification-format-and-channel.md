@@ -1,7 +1,7 @@
 # 0006 — Notification format and channel
 
-- Status: accepted for items 1-5; format sign-off (item 6) pending private-channel validation
-- Decision record: GitHub issue #7 (open, blocked by issues #11 and #6)
+- Status: accepted
+- Decision record: GitHub issue #7 (closed after issues #11 and #6)
 
 ## Context
 
@@ -79,10 +79,9 @@ Decisions the operator must make are marked `[INSERT DECISION]` with a recommend
    at 1024 characters, preserving the fixed caption prefix. The caption no longer depends on the
    title, so a long title cannot trigger the bound; the cap stays as a guard and as a regression test
    through the public run path.
-6. **Format acceptance sign-off.** `[INSERT DECISION]` — *Recommendation: the operator confirms the
-   rendered message, hashtag, link and PDF in the private channel and records that confirmation
-   before this ADR is fully accepted. The test credentials will be supplied later through a
-   protected local environment file; no live check has been run.*
+6. **Format acceptance sign-off.** Accepted after the private-channel check: the rendered message,
+   category and sector hashtags, official link and both PDF documents were observed in channel
+   `-1005772944869`. The bounded caption and the full field set rendered as designed.
 
 ## Consequences
 
@@ -118,7 +117,6 @@ Decisions the operator must make are marked `[INSERT DECISION]` with a recommend
 
 ## Not verified
 
-No message or document has been rendered in a real Telegram client. Client-specific behaviour —
-inline link previews, hashtag indexing in the channel, emoji width, PDF size acceptance and caption
-rendering — is untested here and is the subject of the validation checklist. Item 6 stays open until
-that checklist has run.
+The message, hashtags, official link and two PDF documents were rendered in one private Telegram
+client and recorded in the validation checklist. Other clients and platforms remain unverified:
+inline link previews, hashtag indexing in other clients, emoji width and caption rendering can differ.
