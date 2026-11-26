@@ -12,6 +12,12 @@ from pathlib import Path
 from urllib.request import Request, urlopen
 
 
+HTTP_TIMEOUT = 20
+USER_AGENT = "apt-cron/1.0"
+# Telegram's documented document upload limit, also the in-memory fetch bound.
+DOCUMENT_MAX_BYTES = 50 * 1024 * 1024
+
+
 NOTICE_FIELDS = {
     "id": "id",
     "title": "cntTitle",
@@ -234,11 +240,20 @@ def fetch_attachments(transport, attachments_base, notice_id):
     return {"document_url": document_url, "attachment_urls": attachment_urls}
 
 
+def document_filename(document_url):
+    name = Path(document_url.split("?", 1)[0]).name
+    return name if name.lower().endswith(".pdf") else "document.pdf"
+
+
 def publish_document(transport, telegram_url, chat_id, document_url, caption):
-    response = transport.request(
-        "POST",
+    content = transport.fetch_bytes(document_url)
+    if len(content) > DOCUMENT_MAX_BYTES:
+        raise RuntimeError(f"document exceeds {DOCUMENT_MAX_BYTES} bytes: {document_url}")
+    response = transport.send_document(
         telegram_url,
-        {"chat_id": chat_id, "document": document_url, "caption": caption},
+        {"chat_id": chat_id, "caption": caption},
+        document_filename(document_url),
+        content,
     )
     if not response.get("ok"):
         raise RuntimeError(response.get("description") or "telegram document error")
@@ -454,6 +469,26 @@ def format_message(notice, detail_base, updated=False):
     return _bounded(lines, TELEGRAM_TEXT_LIMIT)
 
 
+def multipart_body(fields, filename, content):
+    boundary = f"aptcron{os.urandom(16).hex()}"
+    head = b"".join(
+        f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{value}\r\n'.encode(
+            "utf-8"
+        )
+        for name, value in fields.items()
+    )
+    head += (
+        f'--{boundary}\r\nContent-Disposition: form-data; name="document"; filename="{filename}"\r\n'
+        "Content-Type: application/pdf\r\n\r\n"
+    ).encode("utf-8")
+    # shortcut: the body is assembled in memory, so a 50 MB document peaks at roughly twice its size;
+    # stream the parts only if the Telegram limit grows.
+    return (
+        head + content + f"\r\n--{boundary}--\r\n".encode("utf-8"),
+        f"multipart/form-data; boundary={boundary}",
+    )
+
+
 class UrllibTransport:
     def request(self, method, url, payload=None):
         data = json.dumps(payload).encode("utf-8") if payload is not None else None
@@ -463,11 +498,32 @@ class UrllibTransport:
             headers={
                 "Accept": "application/json",
                 "Content-Type": "application/json",
-                "User-Agent": "apt-cron/1.0",
+                "User-Agent": USER_AGENT,
             },
             method=method,
         )
-        with urlopen(request, timeout=20) as response:
+        with urlopen(request, timeout=HTTP_TIMEOUT) as response:
+            return json.loads(response.read().decode("utf-8"))
+
+    def fetch_bytes(self, url):
+        request = Request(url, headers={"Accept": "application/pdf", "User-Agent": USER_AGENT})
+        with urlopen(request, timeout=HTTP_TIMEOUT) as response:
+            # One byte past the bound is enough for publish_document to reject it.
+            return response.read(DOCUMENT_MAX_BYTES + 1)
+
+    def send_document(self, url, fields, filename, content):
+        data, content_type = multipart_body(fields, filename, content)
+        request = Request(
+            url,
+            data=data,
+            headers={
+                "Accept": "application/json",
+                "Content-Type": content_type,
+                "User-Agent": USER_AGENT,
+            },
+            method="POST",
+        )
+        with urlopen(request, timeout=HTTP_TIMEOUT) as response:
             return json.loads(response.read().decode("utf-8"))
 
 

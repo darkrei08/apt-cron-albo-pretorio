@@ -7,7 +7,7 @@
 
 One format function and one destination exist today.
 
-**Format.** `format_message` (`apt_cron.py:436-454`) builds plain text with no `parse_mode` (the
+**Format.** `format_message` (`apt_cron.py:451-469`) builds plain text with no `parse_mode` (the
 string `parse_mode` appears nowhere in `apt_cron.py` or the tests), so Telegram renders it verbatim:
 
 The message is a sequence of plain-text lines:
@@ -18,35 +18,40 @@ The message is a sequence of plain-text lines:
 - one label/value line for each other non-empty published field;
 - one or more PDF link lines when documents exist.
 
-Those first lines are the identity block (`MESSAGE_IDENTITY_FIELDS`, `apt_cron.py:419`). Every other
+Those first lines are the identity block (`MESSAGE_IDENTITY_FIELDS`, `apt_cron.py:434`). Every other
 non-empty field of the 41 in `NOTICE_FIELDS` follows as its own `Label: value` line, labelled from
-`FIELD_LABELS` and rendered in register order (`_field_rows`, `apt_cron.py:254-260`). Fields the
+`FIELD_LABELS` and rendered in register order (`_field_rows`, `apt_cron.py:269-275`). Fields the
 source returns empty produce no line.
 
 Properties worth noting, all verified in code or tests:
 
 - The official detail link is always present: a missing `detail_url` falls back to
-  `detail_base.rstrip('/') + '/' + id` (`apt_cron.py:444`), and the test
+  `detail_base.rstrip('/') + '/' + id` (`apt_cron.py:461`), and the test
   `test_formats_plain_text_with_searchable_fields_and_official_link` asserts the link survives.
 - Hashtags are derived from the category and the sector by transliterating to ASCII and replacing
-  non-alphanumerics with `_` (`_hashtag`, `apt_cron.py:115-118`), which makes them searchable in
+  non-alphanumerics with `_` (`_hashtag`, `apt_cron.py:121-124`), which makes them searchable in
   Telegram.
-- The message is bounded at 4096 characters (`TELEGRAM_TEXT_LIMIT`, `apt_cron.py:407`). When a notice
-  carries long values the widest lines are shortened in place (`_bounded`, `apt_cron.py:422-434`), so
+- The message is bounded at 4096 characters (`TELEGRAM_TEXT_LIMIT`, `apt_cron.py:422`). When a notice
+  carries long values the widest lines are shortened in place (`_bounded`, `apt_cron.py:437-448`), so
   the bound holds without dropping the label; the tests cover both a pathological URL and a notice
   whose every field is long.
 - Document messages use a caption that identifies the act by number and year and are bounded to 1024
-  characters by `document_caption` (`apt_cron.py:411-416`) before being passed through
+  characters by `document_caption` (`apt_cron.py:426-430`) before being passed through
   `publish_document`. The caption carries no title and no other field, so it cannot vary with them.
+  The document itself is uploaded as bytes: `publish_document` fetches the PDF into memory and posts
+  a multipart `sendDocument` body with `chat_id`, `caption`, the file name and the content. Telegram
+  is never asked to fetch the source URL.
 
-**Channel.** A single destination, `TELEGRAM_CHAT_ID` (`apt_cron.py:514`), used for both
+**Channel.** A single destination, `TELEGRAM_CHAT_ID` (`apt_cron.py:586`), used for both
 `sendMessage` and `sendDocument`. There is no per-category routing, no second channel and no
 fallback chat. The generated index is a separate publication surface (ADR 0005), not a second
 notification channel.
 
-**What is unverified.** `README.md:85` records that no live message or document has been sent, so
-rendering in a real client, hashtag behaviour, PDF acceptance and caption length behaviour are all
-untested on the platform. The private-channel checklist in
+**What is unverified.** `README.md:130` records that the multipart document upload has only been
+exercised against a local server and the unit suite, so rendering in a real client, hashtag
+behaviour, PDF acceptance and caption length behaviour are all untested on the platform. A live
+`sendDocument` by URL failed with `400 Bad Request: failed to get HTTP URL content`, which is why the
+upload now carries the bytes. The private-channel checklist in
 `docs/validation/telegram-private-channel.md` exists to close that gap.
 
 Decisions the operator must make are marked `[INSERT DECISION]` with a recommendation.
@@ -95,19 +100,20 @@ Decisions the operator must make are marked `[INSERT DECISION]` with a recommend
 
 ## Evidence
 
-- `apt_cron.py`: `format_message` `:436-454`, `TELEGRAM_TEXT_LIMIT` `:407`,
-  `TELEGRAM_CAPTION_LIMIT` `:408`, `document_caption` `:411-416`, `_bounded` `:422-434`,
-  `MESSAGE_IDENTITY_FIELDS` `:419`, `_field_rows` `:254-260`, `FIELD_LABELS` `:59-101`, `_hashtag`
-  `:115-118`, `_display_date` `:111-112`, `publish_document` `:237-245`, caption construction in
-  `run_once` `:388`, `publish_message` `:400-405`, `TELEGRAM_CHAT_ID` `:514`.
+- `apt_cron.py`: `format_message` `:451-469`, `TELEGRAM_TEXT_LIMIT` `:422`,
+  `TELEGRAM_CAPTION_LIMIT` `:423`, `document_caption` `:426-430`, `_bounded` `:437-448`,
+  `MESSAGE_IDENTITY_FIELDS` `:434`, `_field_rows` `:269-275`, `FIELD_LABELS` `:65-107`, `_hashtag`
+  `:121-124`, `_display_date` `:117-118`, `document_filename` `:243-245`, `publish_document`
+  `:248-260`, `multipart_body` `:472-489`, caption construction in `run_once` `:403`,
+  `publish_message` `:415-419`, `TELEGRAM_CHAT_ID` `:586`.
 - `tests/test_apt_cron.py`: `test_formats_plain_text_with_searchable_fields_and_official_link`,
   `test_includes_every_public_field_and_never_an_internal_one`,
   `test_message_stays_within_telegram_text_limit`,
   `test_document_caption_uses_the_act_number_and_stays_within_telegram_limit`,
   `test_document_caption_carries_no_public_or_internal_text`, `test_posts_plain_text_to_telegram`,
-  `test_sends_pdf_by_url_as_telegram_document`.
-- `README.md:13` (send order: message first, then PDFs by URL), `:106` (nothing sent live), `:112`
-  (4096 and caption bounds stated).
+  `test_fetches_the_pdf_bytes_and_uploads_them_as_a_document`.
+- `README.md:13` (send order: message first, then PDFs uploaded as bytes), `:130` (live validation is
+  partial), `:122` (4096 and caption bounds stated).
 - `docs/wayfinder-execution-order.md` row 8 (blocked by issues #11 and #6).
 
 ## Not verified

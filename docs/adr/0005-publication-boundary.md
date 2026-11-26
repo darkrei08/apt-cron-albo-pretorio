@@ -8,12 +8,12 @@
 The repository enforces its publication boundary with two explicit allowlists and one generation
 path:
 
-- **Source allowlist.** `NOTICE_FIELDS` (`apt_cron.py:15-56`) maps 41 of the 53 source keys an act
+- **Source allowlist.** `NOTICE_FIELDS` (`apt_cron.py:21-63`) maps 41 of the 53 source keys an act
   carries: nine under stable output names (`id`, `title` = `cntTitle`, `category` =
   `cntNaturaAttoLabel`, `sector` = `cntSettoreProponenteLabel`, `published` =
   `cntDataInizioPubblicazione`, `expires` = `cntDataFinePubblicazione`, `year` =
   `cntAnnoNumeroPap`, `number` = `cntNumeroPap`, `status`) and the other 32 under their register key.
-  `parse_source_response` (`apt_cron.py:104-108`) projects each source item through that map, so a
+  `parse_source_response` (`apt_cron.py:110-114`) projects each source item through that map, so a
   key the API returns but that is not listed is dropped before anything else in the program sees it.
 - **Excluded keys.** The 12 source keys that stay out are the internal account, login, audit and
   responsible-person columns: `cntAutore`, `cntAutoreAnnullamento`,
@@ -21,11 +21,11 @@ path:
   `cntResponsabileProcedimento`, `cntResponsabileProcedimentoLogin`,
   `cntResponsabilePubblicazione`, `cntResponsabilePubblicazioneLogin`, `ultimaAnnotazioneModifica`
   and `ultimaAnnotazioneRipubblicazione`. None of them is projected, fingerprinted or rendered.
-- **Index allowlist.** `INDEX_FIELDS` (`apt_cron.py:248`) is built from `NOTICE_FIELDS`, not written
+- **Index allowlist.** `INDEX_FIELDS` (`apt_cron.py:263`) is built from `NOTICE_FIELDS`, not written
   a second time: it is `tuple(NOTICE_FIELDS)` plus the derived `detail_url`, `document_url` and
-  `attachment_urls`. `build_index` (`apt_cron.py:263-264`) projects through it, and `write_index`
-  (`apt_cron.py:267-316`) renders every non-empty field to `index.json`, `index.md` and
-  `index.html` using the labels in `FIELD_LABELS` (`apt_cron.py:59-101`), HTML-escaping every value.
+  `attachment_urls`. `build_index` (`apt_cron.py:278-279`) projects through it, and `write_index`
+  (`apt_cron.py:282-331`) renders every non-empty field to `index.json`, `index.md` and
+  `index.html` using the labels in `FIELD_LABELS` (`apt_cron.py:65-107`), HTML-escaping every value.
 - **Title and sector are published again.** Both are formatted into the Telegram message and the
   index, and both are fingerprinted, so a change to either produces an "Atto aggiornato" message.
   This supersedes the earlier decision to keep them internal.
@@ -34,7 +34,7 @@ path:
   fields; it is not in `NOTICE_FIELDS`, so it never reaches state, Telegram or the index. The fixture
   is synthetic (`"NOT IN OUTPUT"`, `"ALSO NOT IN OUTPUT"`).
 - **Two publication surfaces exist, both described as such.** Telegram is the intended surface. The
-  generated index is written to `APT_INDEX_DIR` (`public/` by default, `apt_cron.py:507-510`), is not
+  generated index is written to `APT_INDEX_DIR` (`public/` by default, `apt_cron.py:580-581`), is not
   ignored by `.gitignore`, and is committed to this repository every hour by
   `.github/workflows/update-index.yml` with the repository `GITHUB_TOKEN`. A committed
   `public/index.*` is therefore public a second time, through the repository and any hosting of it.
@@ -90,7 +90,7 @@ Operator decisions are recorded below.
   needs the same review as a field change, and the tests assert the absence of the excluded keys
   through the public run path.
 - The message is longer than before: an act with many filled fields renders one line per field, still
-  bounded at 4096 characters by truncating the widest lines (`_bounded`, `apt_cron.py:422-434`).
+  bounded at 4096 characters by truncating the widest lines (`_bounded`, `apt_cron.py:437-448`).
   A pathological value is shortened, not dropped unbounded.
 - A notice removed from the source leaves the current `public/index.*` on the next hourly refresh but
   stays in earlier Git commits. That history is accepted under ADR 0004 item 4 and is not removable
@@ -101,11 +101,11 @@ Operator decisions are recorded below.
 
 ## Evidence
 
-- `apt_cron.py`: `NOTICE_FIELDS` `:15-56`, `FIELD_LABELS` `:59-101`, `parse_source_response`
-  `:104-108`, `fingerprint` `:140-142`, `INDEX_FIELDS` `:248`, `_field_rows` `:254-260`,
-  `build_index` `:263-264`, `write_index` `:267-316`, `refresh_index` `:355-358`, `document_caption`
-  `:411-416`, `MESSAGE_IDENTITY_FIELDS` `:419-419`, `_bounded` `:422-434`, `format_message`
-  `:436-454`, `--index-dir` default `:507-510`.
+- `apt_cron.py`: `NOTICE_FIELDS` `:21-63`, `FIELD_LABELS` `:65-107`, `parse_source_response`
+  `:110-114`, `fingerprint` `:146-148`, `INDEX_FIELDS` `:263`, `_field_rows` `:269-275`,
+  `build_index` `:278-279`, `write_index` `:282-331`, `refresh_index` `:370-373`, `document_caption`
+  `:426-430`, `MESSAGE_IDENTITY_FIELDS` `:434`, `_bounded` `:437-448`, `format_message`
+  `:451-469`, `--index-dir` default `:580-581`.
 - `.github/workflows/update-index.yml`: hourly and manual dispatch, `TZ: Europe/Rome`, commits only
   `public/index.json`, `public/index.md` and `public/index.html`.
 - `tests/test_apt_cron.py`: `INCLUDED_SOURCE_FIELDS` and `EXCLUDED_SOURCE_FIELDS` pin both sets,

@@ -23,9 +23,11 @@ alternative for the notice list.
    status and notice number. Nothing is written to the source.
 2. **PDF links come from the attachment endpoint.** For a notice whose links are not cached in
    state, `GET APT_ATTACHMENTS_BASE/{id}` is read, and only links whose MIME type is
-   `application/pdf` (`documentoUnico.downloadUrl`) plus PDF attachment URLs are kept. PDF bytes
-   are never downloaded by this project; Telegram fetches each document by URL, and publishing uses
-   `POST /sendMessage` and `POST /sendDocument`.
+   `application/pdf` (`documentoUnico.downloadUrl`) plus PDF attachment URLs are kept. When a
+   document is published, its bytes are fetched into memory with the same 20-second timeout and
+   uploaded in a multipart `POST /sendDocument` body, bounded at 50 MB before the upload; no PDF is
+   written to disk and no source URL is handed to Telegram. Publishing uses `POST /sendMessage` and
+   `POST /sendDocument`, and state, index and messages carry URLs only.
 3. **Only allowed public metadata fields are read and published.** `NOTICE_FIELDS` maps 41 of the 53
    source keys an act carries: nine under stable output names (id, title, category, sector,
    publication start and end dates, year/number pair and status) and the other 32 under their register

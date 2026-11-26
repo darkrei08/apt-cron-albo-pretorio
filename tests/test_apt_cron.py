@@ -309,6 +309,9 @@ class DeduplicationTest(unittest.TestCase):
         self.assertFalse(path.exists())
 
 
+DOCUMENT_BYTES = b"%PDF-1.4 in-memory document payload"
+
+
 class SequenceTransport:
     def __init__(self, source_response, telegram_response, attachments_response=None):
         self.source_response = source_response
@@ -325,6 +328,22 @@ class SequenceTransport:
         if "/api/pap/files/" in url:
             return self.attachments_response
         return self.source_response
+
+    def fetch_bytes(self, url):
+        self.calls.append({"method": "GET", "url": url, "payload": None})
+        return DOCUMENT_BYTES
+
+    def send_document(self, url, fields, filename, content):
+        self.calls.append(
+            {
+                "method": "POST",
+                "url": url,
+                "payload": fields,
+                "filename": filename,
+                "content": content,
+            }
+        )
+        return self.telegram_response
 
 
 def run_config(state_path):
@@ -491,6 +510,24 @@ class StableIdentityTest(unittest.TestCase):
         self.assertNotEqual(key, apt_cron.notice_key(dict(notice, detail_url="https://example.test/other")))
 
 
+class DocumentTransport:
+    def __init__(self, content=DOCUMENT_BYTES, response=None):
+        self.content = content
+        self.response = response or {"ok": True, "result": {"message_id": 9}}
+        self.fetched = []
+        self.calls = []
+
+    def fetch_bytes(self, url):
+        self.fetched.append(url)
+        return self.content
+
+    def send_document(self, url, fields, filename, content):
+        self.calls.append(
+            {"url": url, "payload": fields, "filename": filename, "content": content}
+        )
+        return self.response
+
+
 class PdfDeliveryTest(unittest.TestCase):
     def test_fetch_attachments_exposes_only_pdf_urls(self):
         response = json.loads((Path(__file__).parent / "fixtures" / "attachments_response.json").read_text(encoding="utf-8"))
@@ -514,33 +551,133 @@ class PdfDeliveryTest(unittest.TestCase):
             },
         )
 
-    def test_sends_pdf_by_url_as_telegram_document(self):
-        transport = FakeTransport({"ok": True, "result": {"message_id": 9}})
+    def test_fetches_the_pdf_bytes_and_uploads_them_as_a_document(self):
+        transport = DocumentTransport()
 
         result = apt_cron.publish_document(
             transport,
             "https://api.telegram.org/botTEST_TOKEN/sendDocument",
             "@test_channel",
-            "https://example.test/Delibera.pdf",
+            "https://example.test/katti/public/pap/edoc/download/single/6500/791962/abc/Delibera.pdf",
             "PDF ufficiale",
         )
 
         self.assertEqual(result["message_id"], 9)
-        self.assertEqual(transport.calls[0]["method"], "POST")
+        self.assertEqual(
+            transport.fetched,
+            [
+                "https://example.test/katti/public/pap/edoc/download/single/6500/791962/abc/Delibera.pdf"
+            ],
+        )
         self.assertEqual(
             transport.calls[0]["payload"],
-            {
-                "chat_id": "@test_channel",
-                "document": "https://example.test/Delibera.pdf",
-                "caption": "PDF ufficiale",
-            },
+            {"chat_id": "@test_channel", "caption": "PDF ufficiale"},
+        )
+        self.assertEqual(transport.calls[0]["filename"], "Delibera.pdf")
+        self.assertEqual(transport.calls[0]["content"], DOCUMENT_BYTES)
+        self.assertNotIn("https://example.test", json.dumps(transport.calls[0]["payload"]))
+
+    def test_falls_back_to_a_pdf_name_when_the_url_has_no_file_name(self):
+        transport = DocumentTransport()
+
+        apt_cron.publish_document(
+            transport,
+            "https://api.telegram.org/botTEST_TOKEN/sendDocument",
+            "@test_channel",
+            "https://example.test/katti/public/pap/edoc/download/unico/6500/791962",
+            "PDF ufficiale",
         )
 
+        self.assertEqual(transport.calls[0]["filename"], "document.pdf")
+
+    def test_rejects_a_document_above_the_size_bound_before_upload(self):
+        transport = DocumentTransport(content=b"x" * 11)
+
+        with mock.patch.object(apt_cron, "DOCUMENT_MAX_BYTES", 10), self.assertRaises(RuntimeError):
+            apt_cron.publish_document(
+                transport,
+                "https://api.telegram.org/botTEST_TOKEN/sendDocument",
+                "@x",
+                "https://x/a.pdf",
+                "c",
+            )
+
+        self.assertEqual(transport.calls, [])
+
     def test_rejects_a_document_error(self):
-        transport = FakeTransport({"ok": False, "description": "file too large"})
+        transport = DocumentTransport(response={"ok": False, "description": "file too large"})
 
         with self.assertRaises(RuntimeError):
             apt_cron.publish_document(transport, "https://api.telegram.org/botTEST_TOKEN/sendDocument", "@x", "https://x/a.pdf", "c")
+
+
+class UrllibDocumentUploadTest(unittest.TestCase):
+    def test_posts_a_multipart_body_that_carries_the_bytes_not_the_url(self):
+        captured = {}
+
+        class Response:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self, *args):
+                return json.dumps({"ok": True, "result": {"message_id": 5}}).encode("utf-8")
+
+        def fake_urlopen(request, timeout=None):
+            captured["request"] = request
+            captured["timeout"] = timeout
+            return Response()
+
+        with mock.patch.object(apt_cron, "urlopen", fake_urlopen):
+            result = apt_cron.UrllibTransport().send_document(
+                "https://api.telegram.org/botTEST_TOKEN/sendDocument",
+                {"chat_id": "@test_channel", "caption": "PDF ufficiale"},
+                "notice.pdf",
+                DOCUMENT_BYTES,
+            )
+
+        request = captured["request"]
+        headers = {name.lower(): value for name, value in request.header_items()}
+        self.assertTrue(result["ok"])
+        self.assertEqual(request.get_method(), "POST")
+        self.assertEqual(captured["timeout"], 20)
+        self.assertTrue(headers["content-type"].startswith("multipart/form-data; boundary="))
+        boundary = headers["content-type"].split("boundary=", 1)[1].encode("utf-8")
+        self.assertTrue(request.data.startswith(b"--" + boundary))
+        self.assertTrue(request.data.endswith(b"--" + boundary + b"--\r\n"))
+        self.assertIn(b"%PDF-1.4 in-memory document payload", request.data)
+        self.assertIn(b'name="document"; filename="notice.pdf"', request.data)
+        self.assertIn(b'name="chat_id"', request.data)
+        self.assertIn(b"@test_channel", request.data)
+        self.assertIn(b'name="caption"', request.data)
+        self.assertNotIn(b"https://example.test", request.data)
+
+    def test_reads_document_bytes_in_memory_with_the_existing_timeout(self):
+        captured = {}
+
+        class Response:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self, amount=None):
+                captured["amount"] = amount
+                return DOCUMENT_BYTES
+
+        def fake_urlopen(request, timeout=None):
+            captured["timeout"] = timeout
+            return Response()
+
+        with mock.patch.object(apt_cron, "urlopen", fake_urlopen):
+            content = apt_cron.UrllibTransport().fetch_bytes("https://example.test/a.pdf")
+
+        self.assertEqual(content, DOCUMENT_BYTES)
+        self.assertEqual(captured["timeout"], 20)
+        self.assertEqual(captured["amount"], apt_cron.DOCUMENT_MAX_BYTES + 1)
 
 
 class PublishedFieldSetTest(unittest.TestCase):
@@ -777,8 +914,10 @@ class NewNoticeDeliveryTest(unittest.TestCase):
         self.assertEqual(second_stats["published"], 0)
         sent = [call for call in first_calls if "api.telegram.org" in call["url"]]
         self.assertEqual(len(sent), 3)
-        self.assertEqual(sent[1]["payload"]["document"], "https://example.test/documento-799999.pdf")
-        self.assertEqual(sent[2]["payload"]["document"], "https://example.test/allegato-799999.pdf")
+        self.assertEqual(sent[1]["filename"], "documento-799999.pdf")
+        self.assertEqual(sent[2]["filename"], "allegato-799999.pdf")
+        self.assertEqual(sent[1]["content"], DOCUMENT_BYTES)
+        self.assertEqual(sent[2]["content"], DOCUMENT_BYTES)
         self.assertIn("https://example.test/documento-799999.pdf", state["sent_documents"])
         self.assertIn("https://example.test/allegato-799999.pdf", state["sent_documents"])
         self.assertFalse([call for call in transport.calls if "api.telegram.org" in call["url"]])
@@ -801,6 +940,59 @@ class NewNoticeDeliveryTest(unittest.TestCase):
 
         self.assertEqual(len(sent), 1)
         self.assertIn("sendMessage", sent[0]["url"])
+
+
+class InMemoryDocumentDeliveryTest(unittest.TestCase):
+    def test_run_once_uploads_the_fetched_bytes_and_writes_no_document_file(self):
+        response = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        transport = DynamicAttachmentsTransport(response, {"ok": True, "result": {"message_id": 1}})
+        with tempfile.TemporaryDirectory() as directory:
+            config = run_config(Path(directory) / "state.json")
+            apt_cron.run_once(transport, config)
+            response["results"][0]["cntTitle"] = "Titolo aggiornato"
+            transport.calls.clear()
+
+            stats = apt_cron.run_once(transport, config)
+            written = sorted(
+                str(path.relative_to(directory))
+                for path in Path(directory).rglob("*")
+                if path.is_file()
+            )
+            state_text = Path(config["state_path"]).read_text(encoding="utf-8")
+            index_text = (Path(config["index_dir"]) / "index.json").read_text(encoding="utf-8")
+
+        self.assertEqual(stats["published"], 1)
+        documents = [call for call in transport.calls if "sendDocument" in call["url"]]
+        self.assertEqual(len(documents), 2)
+        for call in documents:
+            self.assertEqual(call["content"], DOCUMENT_BYTES)
+        self.assertEqual(
+            written,
+            ["public/index.html", "public/index.json", "public/index.md", "state.json"],
+        )
+        self.assertIn("https://example.test/documento-791962.pdf", state_text)
+        self.assertIn("https://example.test/documento-791962.pdf", index_text)
+        for text in (state_text, index_text):
+            self.assertNotIn("in-memory document payload", text)
+
+    def test_an_oversized_pdf_aborts_before_any_upload(self):
+        self.assertEqual(apt_cron.DOCUMENT_MAX_BYTES, 50 * 1024 * 1024)
+        response = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        transport = DynamicAttachmentsTransport(response, {"ok": True, "result": {"message_id": 1}})
+        transport.fetch_bytes = lambda url: b"x" * 11
+        with tempfile.TemporaryDirectory() as directory:
+            config = run_config(Path(directory) / "state.json")
+            apt_cron.run_once(transport, config)
+            response["results"][0]["cntTitle"] = "Titolo aggiornato"
+            transport.calls.clear()
+
+            with mock.patch.object(apt_cron, "DOCUMENT_MAX_BYTES", 10), self.assertRaises(RuntimeError):
+                apt_cron.run_once(transport, config)
+            documents = [call for call in transport.calls if "sendDocument" in call["url"]]
+            state = apt_cron.load_state(config["state_path"])
+
+        self.assertEqual(documents, [])
+        self.assertEqual(state["sent_documents"], {})
 
 
 class ProductionConfigTest(unittest.TestCase):
