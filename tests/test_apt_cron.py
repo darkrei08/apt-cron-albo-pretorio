@@ -1,6 +1,7 @@
 import json
 import io
 import os
+import contextlib
 from pathlib import Path
 import tempfile
 import unittest
@@ -155,6 +156,14 @@ def quoted_part(message):
 class FormatMessageTest(unittest.TestCase):
     def test_formats_a_readable_html_message(self):
         notice = first_notice()
+        # Production enriches notices with attachment links before formatting.
+        attachments = json.loads(ATTACHMENT_FIXTURE.read_text(encoding="utf-8"))
+        links = apt_cron.fetch_attachments(
+            FakeTransport(attachments),
+            "https://example.test/api/pap/files",
+            notice["id"],
+        )
+        notice.update(links)
 
         message = apt_cron.format_message(
             notice,
@@ -173,6 +182,8 @@ class FormatMessageTest(unittest.TestCase):
                     "#Delibera_del_Direttore_Generale #UFFICIO_AMMINISTRAZIONE",
                     "<b>Stato:</b> PUBBLICATO",
                     '<a href="https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/791962">Atto ufficiale</a>',
+                    '<a href="https://example.test/katti/public/pap/edoc/download/unico/6500/791962">PDF ufficiale</a>',
+                    '<a href="https://example.test/katti/public/pap/edoc/download/single/6500/791962/abc/notice.pdf">Allegato PDF</a>',
                     "<blockquote expandable>ID: 791962</blockquote>",
                 ]
             ),
@@ -588,6 +599,16 @@ class RunOnceTest(unittest.TestCase):
         self.assertEqual(set(state["notices"]), {"791962", "791960"})
         self.assertEqual(set(state["attachments"]), {"791962", "791960"})
 
+    def test_first_run_writes_state_once(self):
+        response = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        transport = SequenceTransport(response, {"ok": True, "result": {"message_id": 1}})
+        with tempfile.TemporaryDirectory() as directory:
+            config = run_config(Path(directory) / "state.json")
+            with mock.patch("apt_cron.save_state", wraps=apt_cron.save_state) as saved:
+                apt_cron.run_once(transport, config)
+
+        self.assertEqual(saved.call_count, 1)
+
     def test_a_regular_run_keeps_the_new_headline_and_never_marks_acts_archived(self):
         response = json.loads(FIXTURE.read_text(encoding="utf-8"))
         transport = SequenceTransport(response, {"ok": True, "result": {"message_id": 1}})
@@ -946,6 +967,35 @@ class StableIdentityTest(unittest.TestCase):
         self.assertEqual(migrated["notices"], {"791962": "old-fingerprint"})
         self.assertEqual(migrated["attachments"], {})
         self.assertEqual(migrated["sent_documents"], {})
+        # No document was ever sent for this legacy state, so no text message is assumed either.
+        self.assertEqual(migrated["sent_messages"], {})
+
+    def test_migrates_a_legacy_state_that_already_tracked_documents(self):
+        legacy = {
+            "version": 1,
+            "notices": {"791962": "old-fingerprint"},
+            "sent_documents": {"https://example.test/a.pdf": "791962"},
+        }
+
+        migrated = apt_cron.migrate_state(legacy)
+
+        self.assertEqual(migrated["sent_messages"], {"791962": "old-fingerprint"})
+
+    def test_legacy_seeded_state_does_not_upload_documents_without_a_message(self):
+        response = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        transport = SequenceTransport(response, {"ok": True, "result": {"message_id": 1}})
+        with tempfile.TemporaryDirectory() as directory:
+            config = run_config(Path(directory) / "state.json")
+            apt_cron.run_once(transport, config)
+            seeded = apt_cron.load_state(config["state_path"])
+            legacy = {"version": 1, "notices": seeded["notices"], "attachments": seeded["attachments"]}
+            apt_cron.save_state(config["state_path"], legacy)
+            transport.calls.clear()
+
+            stats = apt_cron.run_once(transport, config)
+
+        self.assertEqual(stats["published"], 0)
+        self.assertEqual([call for call in transport.calls if "api.telegram.org" in call["url"]], [])
 
     def test_falls_back_to_detail_url_when_id_is_missing(self):
         notice = {"detail_url": "https://example.test/albo-pretorio/dettaglio/999", "title": "x"}
@@ -955,6 +1005,30 @@ class StableIdentityTest(unittest.TestCase):
         self.assertNotEqual(key, "None")
         self.assertEqual(key, apt_cron.notice_key(dict(notice, title="changed")))
         self.assertNotEqual(key, apt_cron.notice_key(dict(notice, detail_url="https://example.test/other")))
+
+
+class StateRetentionTest(unittest.TestCase):
+    def test_a_regular_run_keeps_historical_notice_fingerprints(self):
+        response = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        transport = SequenceTransport(response, {"ok": True, "result": {"message_id": 1}})
+        with tempfile.TemporaryDirectory() as directory:
+            config = run_config(Path(directory) / "state.json")
+            apt_cron.save_state(
+                config["state_path"],
+                {
+                    "version": 2,
+                    "notices": {"archived-1": "old-fingerprint"},
+                    "attachments": {},
+                    "sent_documents": {},
+                    "sent_messages": {},
+                },
+            )
+
+            apt_cron.run_once(transport, config)
+            state = apt_cron.load_state(config["state_path"])
+
+        self.assertEqual(state["notices"]["archived-1"], "old-fingerprint")
+        self.assertEqual(set(state["notices"]), {"archived-1", "791962", "791960"})
 
 
 class DocumentTransport:
@@ -1056,6 +1130,81 @@ class PdfDeliveryTest(unittest.TestCase):
 
         with self.assertRaises(RuntimeError):
             apt_cron.publish_document(transport, "https://api.telegram.org/botTEST_TOKEN/sendDocument", "@x", "https://x/a.pdf", "c")
+
+
+class UrlSchemeTest(unittest.TestCase):
+    def test_fetch_bytes_refuses_a_non_http_url_before_opening_it(self):
+        with mock.patch.object(apt_cron, "urlopen") as opened:
+            with self.assertRaises(RuntimeError):
+                apt_cron.UrllibTransport().fetch_bytes("file:///etc/apt-cron/albo.env")
+
+        opened.assert_not_called()
+
+    def test_message_does_not_render_unsafe_urls_as_links(self):
+        notice = full_notice()
+        notice.update(
+            detail_url="javascript:alert(1)",
+            document_url="data:application/pdf;base64,AAAA",
+            attachment_urls=["file:///etc/apt-cron/albo.env"],
+        )
+
+        text = apt_cron.format_message(notice, "https://example.test/albo")
+
+        self.assertNotIn("javascript:", text)
+        self.assertNotIn('href="data:', text)
+        self.assertNotIn("file:///", text)
+
+    def test_index_does_not_render_unsafe_urls_as_links(self):
+        notice = full_notice()
+        notice.update(
+            detail_url="javascript:alert(1)",
+            document_url="data:text/html,<script>x</script>",
+            attachment_urls=["file:///etc/apt-cron/albo.env"],
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            apt_cron.write_index(directory, apt_cron.build_index([notice]))
+            html_text = (Path(directory) / "index.html").read_text(encoding="utf-8")
+            markdown_text = (Path(directory) / "index.md").read_text(encoding="utf-8")
+
+        for text in (html_text, markdown_text):
+            self.assertNotIn("javascript:", text)
+            self.assertNotIn("file:///", text)
+            self.assertNotIn("data:text/html", text)
+
+
+class InputHardeningTest(unittest.TestCase):
+    def test_notice_key_falls_back_to_the_attachment_urls_field(self):
+        notice = {"attachment_urls": ["https://example.test/a.pdf"]}
+
+        key = apt_cron.notice_key(notice)
+
+        self.assertNotEqual(key, "None")
+        self.assertEqual(key, apt_cron.notice_key(dict(notice, title="changed")))
+
+    def test_document_filename_cannot_inject_a_header(self):
+        name = apt_cron.document_filename('https://example.test/a"b\r\nX-Evil: 1.pdf')
+
+        for unsafe in ('"', "\r", "\n"):
+            self.assertNotIn(unsafe, name)
+        self.assertTrue(name.endswith(".pdf"))
+
+    def test_multipart_headers_cannot_be_injected(self):
+        body, _ = apt_cron.multipart_body(
+            {"chat_id": "1\r\nX-Evil: 1"}, 'a"\r\nb.pdf', b"data"
+        )
+
+        self.assertNotIn(b"\r\nX-Evil", body)
+        self.assertNotIn(b'filename="a"', body)
+        self.assertIn(b'filename="a___b.pdf"', body)
+
+    def test_save_state_removes_a_temporary_file_when_serialization_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "state.json"
+            with mock.patch("apt_cron.json.dump", side_effect=TypeError("boom")):
+                with self.assertRaises(TypeError):
+                    apt_cron.save_state(str(path), {})
+
+            self.assertEqual(list(Path(directory).iterdir()), [])
 
 
 class UrllibDocumentUploadTest(unittest.TestCase):
@@ -1443,6 +1592,13 @@ class InMemoryDocumentDeliveryTest(unittest.TestCase):
 
 
 class ProductionConfigTest(unittest.TestCase):
+    def test_refresh_index_and_backfill_cannot_be_combined(self):
+        with contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit) as raised:
+                apt_cron.main(["--refresh-index", "--backfill"])
+
+        self.assertEqual(raised.exception.code, 2)
+
     def test_page_size_must_be_a_positive_integer(self):
         self.assertEqual(apt_cron.parse_positive_int("20", "APT_PAGE_SIZE"), 20)
         for value in ("bad", "0", "-1", ""):
@@ -1478,6 +1634,164 @@ class ProductionConfigTest(unittest.TestCase):
                 message.count(f"</{tag}>"),
                 tag,
             )
+
+
+class FailingDocumentTransport(SequenceTransport):
+    def __init__(self, source_response, attachments_response, failing_url):
+        super().__init__(
+            source_response, {"ok": True, "result": {"message_id": 1}}, attachments_response
+        )
+        self.failing_url = failing_url
+        self.failed = False
+
+    def fetch_bytes(self, url):
+        if not self.failed and url == self.failing_url:
+            self.failed = True
+            raise RuntimeError("PDF temporarily unavailable")
+        return super().fetch_bytes(url)
+
+
+class PdfRetryTest(unittest.TestCase):
+    PDF_URLS = [
+        "https://example.test/docs/documentoUnico.pdf",
+        "https://example.test/docs/allegato-1.pdf",
+        "https://example.test/docs/allegato-2.pdf",
+        "https://example.test/docs/allegato-3.pdf",
+    ]
+
+    def attachments_response(self):
+        return {
+            "error": False,
+            "results": [
+                {
+                    "documentoUnico": {
+                        "mimeType": "application/pdf",
+                        "downloadUrl": self.PDF_URLS[0],
+                    },
+                    "files": [
+                        {"mimeType": "application/pdf", "downloadUrl": url}
+                        for url in self.PDF_URLS[1:]
+                    ]
+                    + [
+                        {
+                            "mimeType": "image/png",
+                            "downloadUrl": "https://example.test/docs/non-pdf.png",
+                        }
+                    ],
+                }
+            ],
+        }
+
+    def test_all_pdfs_follow_one_message_and_non_pdf_is_skipped(self):
+        source = {"results": [archive_item(799999, "2026-11-25", 250)]}
+        transport = SequenceTransport(
+            source,
+            {"ok": True, "result": {"message_id": 1}},
+            self.attachments_response(),
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            config = run_config(Path(directory) / "state.json")
+            apt_cron.run_once(transport, config)
+            source["results"][0]["cntTitle"] += " aggiornato"
+            transport.calls.clear()
+
+            stats = apt_cron.run_once(transport, config)
+            sent = [call for call in transport.calls if "api.telegram.org" in call["url"]]
+            fetched = [
+                call["url"]
+                for call in transport.calls
+                if call["method"] == "GET" and call["url"].startswith("https://example.test/docs/")
+            ]
+            state = apt_cron.load_state(config["state_path"])
+
+        self.assertEqual(stats["published"], 1)
+        self.assertEqual(len(sent), 5)
+        self.assertIn("sendMessage", sent[0]["url"])
+        self.assertEqual([call["url"] for call in sent[1:]], [config["document_base"]] * 4)
+        self.assertEqual(fetched, self.PDF_URLS)
+        self.assertEqual(
+            [call["filename"] for call in sent[1:]],
+            [url.rsplit("/", 1)[1] for url in self.PDF_URLS],
+        )
+        self.assertEqual(set(state["sent_documents"]), set(self.PDF_URLS))
+        self.assertNotIn("non-pdf.png", json.dumps(state))
+
+    def test_duplicate_pdf_urls_are_uploaded_once(self):
+        source = {"results": [archive_item(799999, "2026-11-25", 250)]}
+        duplicate = {
+            "error": False,
+            "results": [
+                {
+                    "documentoUnico": {
+                        "mimeType": "application/pdf",
+                        "downloadUrl": self.PDF_URLS[0],
+                    },
+                    "files": [
+                        {"mimeType": "application/pdf", "downloadUrl": self.PDF_URLS[0]},
+                        {"mimeType": "application/pdf", "downloadUrl": self.PDF_URLS[1]},
+                        {"mimeType": "application/pdf", "downloadUrl": self.PDF_URLS[1]},
+                    ],
+                }
+            ],
+        }
+        transport = SequenceTransport(
+            source, {"ok": True, "result": {"message_id": 1}}, duplicate
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            config = run_config(Path(directory) / "state.json")
+            apt_cron.run_once(transport, config)
+            source["results"][0]["cntTitle"] += " aggiornato"
+            transport.calls.clear()
+
+            apt_cron.run_once(transport, config)
+            sent = [call for call in transport.calls if "sendDocument" in call["url"]]
+
+        self.assertEqual(
+            [call["filename"] for call in sent], ["documentoUnico.pdf", "allegato-1.pdf"]
+        )
+
+    def test_partial_document_failure_retries_only_missing_pdfs(self):
+        source = {"results": [archive_item(799999, "2026-11-25", 250)]}
+        transport = FailingDocumentTransport(
+            source, self.attachments_response(), self.PDF_URLS[1]
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            config = run_config(Path(directory) / "state.json")
+            apt_cron.run_once(transport, config)
+            source["results"][0]["cntTitle"] += " aggiornato"
+            transport.calls.clear()
+
+            with self.assertRaises(RuntimeError):
+                apt_cron.run_once(transport, config)
+            failed_calls = [call for call in transport.calls if "api.telegram.org" in call["url"]]
+            failed_state = apt_cron.load_state(config["state_path"])
+            transport.calls.clear()
+
+            stats = apt_cron.run_once(transport, config)
+            recovered = [call for call in transport.calls if "api.telegram.org" in call["url"]]
+            state = apt_cron.load_state(config["state_path"])
+
+        self.assertEqual(
+            [call["filename"] for call in failed_calls if "sendDocument" in call["url"]],
+            ["documentoUnico.pdf"],
+        )
+        self.assertEqual(
+            len([call for call in failed_calls if "sendMessage" in call["url"]]), 1
+        )
+        self.assertEqual(set(failed_state["sent_documents"]), {self.PDF_URLS[0]})
+        self.assertNotEqual(
+            failed_state["sent_messages"]["799999"],
+            failed_state["notices"]["799999"],
+        )
+
+        self.assertEqual(stats["published"], 0)
+        self.assertEqual([call for call in recovered if "sendMessage" in call["url"]], [])
+        self.assertEqual(
+            [call["filename"] for call in recovered if "sendDocument" in call["url"]],
+            ["allegato-1.pdf", "allegato-2.pdf", "allegato-3.pdf"],
+        )
+        self.assertEqual(set(state["sent_documents"]), set(self.PDF_URLS))
+        self.assertEqual(state["sent_messages"]["799999"], state["notices"]["799999"])
 
 
 if __name__ == "__main__":

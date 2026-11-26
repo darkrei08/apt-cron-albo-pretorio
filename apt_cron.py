@@ -9,6 +9,7 @@ import tempfile
 import unicodedata
 from datetime import date
 from pathlib import Path
+from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
 
@@ -140,13 +141,19 @@ def load_state(path):
 def save_state(path, state):
     directory = os.path.dirname(os.path.abspath(path))
     os.makedirs(directory, exist_ok=True)
-    with tempfile.NamedTemporaryFile(
-        mode="w", encoding="utf-8", dir=directory, delete=False
-    ) as handle:
-        json.dump(state, handle, sort_keys=True, indent=2)
-        handle.write("\n")
-        temporary = handle.name
-    os.replace(temporary, path)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=directory, delete=False
+        ) as handle:
+            temporary = handle.name
+            json.dump(state, handle, sort_keys=True, indent=2)
+            handle.write("\n")
+        os.replace(temporary, path)
+    except Exception:
+        if temporary:
+            Path(temporary).unlink(missing_ok=True)
+        raise
 
 
 def fingerprint(notice):
@@ -157,15 +164,23 @@ def fingerprint(notice):
 def notice_key(notice):
     if notice.get("id") not in (None, ""):
         return str(notice["id"])
-    for field in ("detail_url", "document_url", "attachment_url"):
+    for field in ("detail_url", "document_url", "attachment_urls"):
         value = notice.get(field)
+        if isinstance(value, list):
+            value = value[0] if value else None
         if value:
             return hashlib.sha256(str(value).encode("utf-8")).hexdigest()
     raise ValueError("notice has no stable identifier")
 
 
 def empty_state():
-    return {"version": 2, "notices": {}, "attachments": {}, "sent_documents": {}}
+    return {
+        "version": 2,
+        "notices": {},
+        "attachments": {},
+        "sent_documents": {},
+        "sent_messages": {},
+    }
 
 
 def migrate_state(state):
@@ -175,6 +190,18 @@ def migrate_state(state):
     migrated["notices"] = dict(state.get("notices", {}))
     migrated["attachments"] = dict(state.get("attachments", {}))
     migrated["sent_documents"] = dict(state.get("sent_documents", {}))
+    sent_messages = state.get("sent_messages")
+    if sent_messages is None:
+        # A legacy notice fingerprint alone does not prove its text message was sent:
+        # first-run seeding also stored one. Only a notice whose document was uploaded
+        # is known to have been announced, so seed just those and never flood the rest.
+        documented = set(migrated["sent_documents"].values())
+        sent_messages = {
+            key: value
+            for key, value in migrated["notices"].items()
+            if key in documented
+        }
+    migrated["sent_messages"] = dict(sent_messages)
     return migrated
 
 
@@ -190,7 +217,7 @@ def select_changes(notices, state):
         for notice in notices
         if current[notice_key(notice)] != previous.get(notice_key(notice))
     ]
-    return changes, dict(state, notices=current)
+    return changes, dict(state, notices={**previous, **current})
 
 
 def notice_query(today, nature_id, archive):
@@ -263,8 +290,25 @@ def fetch_attachments(transport, attachments_base, notice_id):
     return {"document_url": document_url, "attachment_urls": attachment_urls}
 
 
+def public_url(url):
+    """Only absolute http(s) URLs may be fetched or published as links."""
+    try:
+        parts = urlsplit(str(url or ""))
+    except ValueError:
+        return ""
+    if parts.scheme not in ("http", "https") or not parts.netloc:
+        return ""
+    return str(url)
+
+
+def _header_value(value):
+    # MIME header values must not carry a line break.
+    return str(value).replace("\r", " ").replace("\n", " ")
+
+
 def document_filename(document_url):
-    name = Path(document_url.split("?", 1)[0]).name
+    name = Path(str(document_url or "").split("?", 1)[0]).name
+    name = re.sub(r'[\\\x00-\x1f"]', "_", name)
     return name if name.lower().endswith(".pdf") else "document.pdf"
 
 
@@ -315,11 +359,24 @@ def write_index(directory, index):
         markdown.append(f"  - Atto: {row['number'] or ''}/{row['year'] or ''}")
         for label, value in _field_rows(row, INDEX_IDENTITY_FIELDS):
             markdown.append(f"  - {label}: {value}")
-        markdown.append(f"  - [Atto ufficiale]({row['detail_url']})")
+        detail = public_url(row["detail_url"])
+        markdown.append(
+            f"  - [Atto ufficiale]({detail})" if detail else "  - Atto ufficiale: link non disponibile"
+        )
         if row["document_url"]:
-            markdown.append(f"  - [PDF ufficiale]({row['document_url']})")
+            document = public_url(row["document_url"])
+            markdown.append(
+                f"  - [PDF ufficiale]({document})"
+                if document
+                else "  - PDF ufficiale: link non disponibile"
+            )
         for url in row["attachment_urls"] or []:
-            markdown.append(f"  - [Allegato PDF]({url})")
+            attachment = public_url(url)
+            markdown.append(
+                f"  - [Allegato PDF]({attachment})"
+                if attachment
+                else "  - Allegato PDF: link non disponibile"
+            )
     (Path(directory) / "index.md").write_text("\n".join(markdown) + "\n", encoding="utf-8")
     html_lines = [
         "<!doctype html>",
@@ -338,16 +395,25 @@ def write_index(directory, index):
         )
         for label, value in _field_rows(row, INDEX_IDENTITY_FIELDS):
             html_lines.append(f"<li>{html.escape(label)}: {html.escape(str(value))}</li>")
+        detail = public_url(row["detail_url"])
         html_lines.append(
-            f'<li><a href="{html.escape(str(row["detail_url"] or ""), quote=True)}">Atto ufficiale</a></li>'
+            f'<li><a href="{html.escape(detail, quote=True)}">Atto ufficiale</a></li>'
+            if detail
+            else "<li>Atto ufficiale: link non disponibile</li>"
         )
         if row["document_url"]:
+            document = public_url(row["document_url"])
             html_lines.append(
-                f'<li><a href="{html.escape(row["document_url"], quote=True)}">PDF ufficiale</a></li>'
+                f'<li><a href="{html.escape(document, quote=True)}">PDF ufficiale</a></li>'
+                if document
+                else "<li>PDF ufficiale: link non disponibile</li>"
             )
         for url in row["attachment_urls"] or []:
+            attachment = public_url(url)
             html_lines.append(
-                f'<li><a href="{html.escape(url, quote=True)}">Allegato PDF</a></li>'
+                f'<li><a href="{html.escape(attachment, quote=True)}">Allegato PDF</a></li>'
+                if attachment
+                else "<li>Allegato PDF: link non disponibile</li>"
             )
         html_lines.append("</ul></li>")
     html_lines.extend(["</ul>", "</body>", "</html>"])
@@ -411,46 +477,74 @@ def run_once(transport, config):
         state = empty_state()
     notices, attachments = fetch_enriched_notices(transport, config, state)
     changes, next_state = select_changes(notices, state)
-    next_state["attachments"] = attachments
-    sent_documents = dict(state["sent_documents"]) if state else {}
-    next_state["sent_documents"] = sent_documents
     dry_run = bool(config.get("dry_run"))
-    committed_state = next_state if state is None else dict(state, notices=dict(state["notices"]))
-    published = 0
-    for notice, updated in publication_order(changes):
-        text = format_message(
-            notice,
-            config["detail_base"],
-            updated=updated,
-            archived=archive,
-            today=config["today"],
-        )
-        if not dry_run:
+    previous_sent = state["sent_messages"] if state else {}
+    # A document retry is not a new publication: only count content not announced before.
+    published = sum(
+        1
+        for notice, _ in changes
+        if previous_sent.get(notice_key(notice)) != next_state["notices"][notice_key(notice)]
+    )
+    if dry_run:
+        return {"notices": len(notices), "published": published, "dry_run": True}
+
+    previous_notices = state["notices"] if state else {}
+    working = empty_state()
+    working["notices"] = dict(previous_notices)
+    working["attachments"] = dict(state["attachments"]) if state else {}
+    working["sent_documents"] = dict(state["sent_documents"]) if state else {}
+    working["sent_messages"] = dict(previous_sent)
+    # A first run only seeds: write state once at the end so an interruption
+    # cannot leave a partial seed that the next run treats as a real state.
+    seeding = state is None and not archive
+
+    updated = {notice_key(notice): was_update for notice, was_update in changes}
+    for notice, _ in publication_order(
+        [(notice, notice_key(notice) in updated) for notice in notices]
+    ):
+        key = notice_key(notice)
+        current = next_state["notices"][key]
+        if key in updated and working["sent_messages"].get(key) != current:
+            text = format_message(
+                notice,
+                config["detail_base"],
+                updated=updated[key],
+                archived=archive,
+                today=config["today"],
+            )
             publish_message(transport, config["telegram_url"], config["chat_id"], text)
-            key = notice_key(notice)
-            committed_state["notices"][key] = next_state["notices"][key]
-            committed_state["attachments"][key] = attachments[key]
-            save_state(config["state_path"], committed_state)
+            working["sent_messages"][key] = current
+            save_state(config["state_path"], working)
+
+        # A seeded notice has no published message, so it uploads no PDFs. Any notice
+        # with a sent message retries the URLs it is still missing.
+        missing = []
+        if working["sent_messages"].get(key) == current:
             pdf_urls = [notice.get("document_url")] + list(notice.get("attachment_urls") or [])
-            for url in pdf_urls:
-                if not url or url in sent_documents:
-                    continue
-                publish_document(
-                    transport,
-                    config["document_base"],
-                    config["chat_id"],
-                    url,
-                    document_caption(notice),
-                )
-                sent_documents[url] = key
-                committed_state["sent_documents"] = dict(sent_documents)
-                save_state(config["state_path"], committed_state)
-        published += 1
-    if not dry_run:
-        if not archive:
-            write_index(config["index_dir"], build_index(notices))
-        save_state(config["state_path"], next_state)
-    return {"notices": len(notices), "published": published, "dry_run": dry_run}
+            pdf_urls = list(dict.fromkeys(url for url in pdf_urls if url))
+            missing = [url for url in pdf_urls if url not in working["sent_documents"]]
+        for url in missing:
+            publish_document(
+                transport,
+                config["document_base"],
+                config["chat_id"],
+                url,
+                document_caption(notice),
+            )
+            working["sent_documents"][url] = key
+            save_state(config["state_path"], working)
+
+        # Every required PDF succeeded, so this fingerprint is safe to commit.
+        if working["notices"].get(key) != current:
+            working["notices"][key] = current
+            working["attachments"][key] = attachments[key]
+            if not seeding:
+                save_state(config["state_path"], working)
+
+    if not archive:
+        write_index(config["index_dir"], build_index(notices))
+    save_state(config["state_path"], working)
+    return {"notices": len(notices), "published": published, "dry_run": False}
 
 
 def publish_message(transport, telegram_url, chat_id, text):
@@ -511,7 +605,10 @@ def _esc(value, limit=MESSAGE_VALUE_LIMIT):
 
 
 def _link(url, label):
-    return f'<a href="{_esc(url, MESSAGE_URL_LIMIT)}">{label}</a>'
+    safe = public_url(url)
+    if not safe:
+        return f"{label}: link non disponibile"
+    return f'<a href="{_esc(safe, MESSAGE_URL_LIMIT)}">{label}</a>'
 
 
 def _bounded(head, quote):
@@ -590,14 +687,15 @@ def format_message(notice, detail_base, updated=False, archived=False, today=Non
 
 def multipart_body(fields, filename, content):
     boundary = f"aptcron{os.urandom(16).hex()}"
+    filename = re.sub(r'[\\\r\n"]', "_", str(filename))
     head = b"".join(
-        f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{value}\r\n'.encode(
-            "utf-8"
-        )
+        f'--{boundary}\r\nContent-Disposition: form-data; name="{_header_value(name)}"\r\n\r\n'
+        f"{_header_value(value)}\r\n".encode("utf-8")
         for name, value in fields.items()
     )
     head += (
-        f'--{boundary}\r\nContent-Disposition: form-data; name="document"; filename="{filename}"\r\n'
+        f'--{boundary}\r\nContent-Disposition: form-data; name="document"; '
+        f'filename="{_header_value(filename)}"\r\n'
         "Content-Type: application/pdf\r\n\r\n"
     ).encode("utf-8")
     # shortcut: the body is assembled in memory, so a 50 MB document peaks at roughly twice its size;
@@ -625,6 +723,8 @@ class UrllibTransport:
             return json.loads(response.read().decode("utf-8"))
 
     def fetch_bytes(self, url):
+        if not public_url(url):
+            raise RuntimeError(f"refusing a non-http document URL: {url}")
         request = Request(url, headers={"Accept": "application/pdf", "User-Agent": USER_AGENT})
         with urlopen(request, timeout=HTTP_TIMEOUT) as response:
             # One byte past the bound is enough for publish_document to reject it.
@@ -678,12 +778,13 @@ def main(argv=None):
     load_env_file()
     parser = argparse.ArgumentParser(description="Publish new APT Basilicata notices to Telegram")
     parser.add_argument("--dry-run", action="store_true", help="read the source without publishing or saving state")
-    parser.add_argument(
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument(
         "--refresh-index",
         action="store_true",
         help="rebuild the public index without state or Telegram credentials",
     )
-    parser.add_argument(
+    mode.add_argument(
         "--backfill",
         action="store_true",
         help="publish the whole published archive oldest first, without rebuilding the index",

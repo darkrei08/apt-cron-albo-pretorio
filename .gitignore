@@ -15,7 +15,7 @@ cron.log
 __pycache__/
 *.pyc
 
-# Local credentials: only the placeholder example is committed
+# Local credentials are ignored and never committed
 .env
 .env.*
 apt-telegram-test.local

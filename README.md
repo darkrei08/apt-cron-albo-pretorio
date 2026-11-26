@@ -12,7 +12,7 @@ The Wayfinder map is [APT public notices crawler and notification plan](https://
 4. Compares SHA-256 fingerprints with local state.
 5. Sends a short Telegram HTML message with the official links, then uploads each official PDF for new or changed notices: the bytes are fetched into memory and posted in a multipart `sendDocument` body, bounded at 50 MB and never written to disk. Each PDF URL is sent once; the document caption identifies the act number and year.
 6. Regenerates `public/index.json`, `public/index.md` and `public/index.html` from the same published fields.
-7. Saves state incrementally after each successful publish.
+7. Saves state incrementally after each successful message and document, and commits a notice fingerprint only after all its PDFs have uploaded.
 8. A scheduled GitHub Actions workflow refreshes the index hourly and commits only changed `public/index.*` files.
 
 Messages are always published oldest to newest, so within one run the newest act is the last message in
@@ -32,6 +32,8 @@ date the quote says `Scadenza: non nota`. Every dynamic value is HTML-escaped, a
 bounded to 4096 characters.
 
 The first run seeds state from the current source without publishing. This avoids an initial channel flood.
+
+State tracks the fingerprint of the last sent text message separately from the notice fingerprint. If a run stops after the message, the next unchanged run uploads only the missing PDF URLs and sends no second message. A legacy state seeds that sent-message fingerprint only for notices whose document was already uploaded, so migration does not duplicate text messages or upload documents for acts that were only seeded.
 
 Fingerprints cover every published field, so a deploy that changes the field set changes every fingerprint. Move or delete `APT_STATE_PATH` once before the first run after such a change; otherwise that run publishes every current notice as an update.
 
@@ -64,6 +66,7 @@ No third-party Python package is required.
 | `APT_ATTACHMENTS_BASE` | no | `https://siopi.publisys.it/kapi-aptbasilicata/api/pap/files` | Base URL for official PDF link lookup |
 | `APT_INDEX_DIR` | no | `public` | Directory receiving generated index files |
 | `APT_STATE_PATH` | no | `state/notices.json` | File holding fingerprints, cached PDF links and sent document URLs |
+| `APT_ENV_FILE` | no | `.env` in the repository root | Alternative `KEY=VALUE` file loaded before any setting |
 
 The generated `state/` directory and Telegram credentials are not committed.
 
@@ -71,8 +74,9 @@ Configuration can come from a local `KEY=VALUE` file instead of the shell enviro
 reading any setting the script loads `$APT_ENV_FILE`, or `.env` in the repository root when that
 variable is unset, and it never overrides a variable that is already set, so a real environment
 value always wins. Blank lines, `#` comments, an optional `export ` prefix and surrounding quotes are
-accepted. `.env` and `.env.*` are gitignored; only `.env.example`, which holds variable names and
-placeholders, is committed. Do not store a base64-encoded credential: base64 is not encryption, and
+accepted. `.env` and `.env.*` are gitignored, so a local env file is never committed; the variable
+names and placeholders are documented in the configuration table above. Do not store a
+base64-encoded credential: base64 is not encryption, and
 an encoded token in the repository or in Git history is a leaked token.
 
 ## Run
@@ -114,9 +118,7 @@ Publishing from a protected environment file outside the repository, readable on
 user, is equally supported. Point `APT_ENV_FILE` at it to have the script load it:
 
 ```sh
-set -a
-. /etc/apt-cron/albo.env
-set +a
+export APT_ENV_FILE=/etc/apt-cron/albo.env
 python3 apt_cron.py
 ```
 
@@ -153,7 +155,7 @@ repository `GITHUB_TOKEN`.
 `APT_ENV_FILE` file, or the protected environment file, choosing the state and index paths, scheduling
 the job, protecting logs, checking that the Telegram bot has the right permissions, monitoring failures, and answering data-rights requests. Withdrawal is not automated: a withdrawn notice stays in the channel as the permanent record and leaves the index on the next hourly refresh (ADR 0004). Publishing a key that the allowlist excludes (an internal account, login, audit or responsible-person field) would require a new Wayfinder decision; every other public field of an act is already published. After a change to the field set, reseed state once as described above.
 
-**Not verified:** no production cron schedule was installed. A live `sendMessage` and multipart `sendDocument` both succeeded in the private validation channel: one notice produced one text message and two PDF documents. A `sendDocument` that passed the official PDF URL failed earlier with `400 Bad Request: failed to get HTTP URL content`, which is why documents are now uploaded as bytes. The `--refresh-index` path was exercised against the live source; long-term source availability, the hourly GitHub workflow and rendering in other Telegram clients remain unverified.
+**Not verified:** no production cron schedule was installed. A live `sendMessage` and multipart `sendDocument` both succeeded in the private validation channel: one notice produced one text message and two PDF documents. That validation predates the current HTML message format, so HTML rendering remains unverified until the private checklist is rerun. A `sendDocument` that passed the official PDF URL failed earlier with `400 Bad Request: failed to get HTTP URL content`, which is why documents are now uploaded as bytes. The `--refresh-index` path was exercised against the live source; long-term source availability, workflow longevity and rendering in other Telegram clients remain unverified.
 
 ## Production checks
 
@@ -164,7 +166,10 @@ the job, protecting logs, checking that the Telegram bot has the right permissio
 - Document captions state the act number and year and are bounded to 1024 characters.
 - `--refresh-index` needs no Telegram credentials, writes no state and sends nothing.
 - `--backfill` reads the whole archive page by page, publishes oldest to newest, writes no index and
-  keeps state per successful publish, so an interrupted backfill resumes on the next run.
+  keeps state per successful publish, so an interrupted backfill resumes on the next run. It cannot be
+  combined with `--refresh-index`.
+- A failed PDF upload leaves the notice fingerprint uncommitted; the next unchanged run retries only
+  the missing PDF URLs and never resends the text message.
 - GitHub Actions runs compile and the full test suite on pushes to `main` and pull requests, and refreshes the committed index hourly.
 
 ## Tests
@@ -175,4 +180,4 @@ Run the full suite:
 python3 -m unittest discover -s tests -v
 ```
 
-The tests use local fixtures and fake transports; they do not contact APT Basilicata or Telegram. They cover the published outputs (Telegram HTML, captions, index files), the exact message layout, the four state headlines and their precedence, HTML escaping of hostile values, the unknown-expiry note, the multipart document upload and its 50 MB bound, the exact included and excluded field sets, the unchanged dedupe behavior, the credential-free refresh path, the archive criteria and pagination, the oldest-to-newest publication order and the `--backfill` path.
+The tests use local fixtures and fake transports; they do not contact APT Basilicata or Telegram. They cover the published outputs (Telegram HTML, captions, index files), the exact message layout, the four state headlines and their precedence, HTML escaping of hostile values, the unknown-expiry note, the multipart document upload and its 50 MB bound, the exact included and excluded field sets, the unchanged dedupe behavior, multiple PDF attachments, partial document-failure recovery, the credential-free refresh path, the archive criteria and pagination, the oldest-to-newest publication order and the `--backfill` path.
