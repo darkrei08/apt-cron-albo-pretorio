@@ -5,6 +5,10 @@
 .atl/
 .pi/
 
+# Skills are installed once in ~/.agents/skills; never keep project copies
+.agents/skills/
+skills-lock.json
+
 # Cron runtime state
 state/
 cron.log
