@@ -1,5 +1,55 @@
 # APT Basilicata public notices index
 
+- 2026-11-27 - Progetto P.A.R.T.I. Basilicata 2025-2026 - [Azione 1.3 Realizzazione e/o affiancamento a iniziative ed eventi di rilievo nazionale e internazionale] - D.G.R. 423/2025. Contributi valorizzazione Basilicata Turistica - 10ª Concessione-sostegno ad iniziative ed eventi finalizzati alla valorizzazione della Basilicata Turistica. - APS La Luna al Guinzaglio - Pro Loco Carbone - Nerdworks Aps.
+  - Atto: 255/2026
+  - ID: 794234
+  - Categoria: Delibera del Direttore Generale
+  - Settore: UFFICIO AMMINISTRAZIONE
+  - Scade il: 2026-12-12
+  - Stato: PUBBLICATO
+  - Tipo oggetto: 6500
+  - Oggetto radice: 794234
+  - Tipo oggetto radice: 6500
+  - Anno RPAP: 2026
+  - Data documento di origine: 2026-11-27
+  - Data numero PAP: 2026-11-27
+  - Ora numero PAP: 01:51:13
+  - Data numero RPAP: 2026-11-27
+  - Ora numero RPAP: 01:50:58
+  - Durata pubblicazione: 15
+  - Natura atto: 200152
+  - Numero documento di origine: 254
+  - Numero RPAP: 255
+  - Responsabile: MANCANIELLO ROSA
+  - Codice settore proponente: 270981
+  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/794234/dettaglio-pap)
+  - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/794234)
+  - [Allegato](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/794234/6b097cbb58974f0a2c080d84/Del.n.254_Contributi_10__concessione__iniziative_ed_eventi.pdf)
+- 2026-11-27 - D.G.R. 423/2025 - "P.A.R.T.I. Basilicata! Piano di Azione per la Ripresa del Turismo in Basilicata" biennio 2025 - 2026 [Azione 1.3 - Realizzazione e/o affiancamento a iniziative ed eventi di rilievo nazionale ed internazionale] Approvazione schema di Accordo di collaborazione ex art. 15 della L.n. 241/1990 APT - Comune di Lauria (PZ). Progetto "Natale tra i rioni - Lauria, un Natale da vivere", in programma dal 6 dicembre 2026 al 6 gennaio 2027.
+  - Atto: 254/2026
+  - ID: 794232
+  - Categoria: Delibera del Direttore Generale
+  - Settore: UFFICIO AMMINISTRAZIONE
+  - Scade il: 2026-12-12
+  - Stato: PUBBLICATO
+  - Tipo oggetto: 6500
+  - Oggetto radice: 794232
+  - Tipo oggetto radice: 6500
+  - Anno RPAP: 2026
+  - Data documento di origine: 2026-11-27
+  - Data numero PAP: 2026-11-27
+  - Ora numero PAP: 01:50:17
+  - Data numero RPAP: 2026-11-27
+  - Ora numero RPAP: 01:49:59
+  - Durata pubblicazione: 15
+  - Natura atto: 200152
+  - Numero documento di origine: 253
+  - Numero RPAP: 254
+  - Responsabile: MANCANIELLO ROSA
+  - Codice settore proponente: 270981
+  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/794232/dettaglio-pap)
+  - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/794232)
+  - [Allegato](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/794232/6b097c835fa8b266425e6866/Del.n.253_Approvazione_schema_accordo_APt_-_Comune_di_Lauria.pdf)
 - 2026-11-26 - Affidamento diretto ai sensi dell'art. 50, comma 1, lettera b) del D.Lgs. N. 36 del 31/03/2023 alla ditta "Lux Service di Antonella Scavone di Potenza" per interventi di manutenzione siepi di lauroceraso presso area parcheggio per il triennio 207/2029
   - Atto: 253/2026
   - ID: 793331
@@ -450,53 +500,3 @@
   - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/789542/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/789542)
   - [Allegato](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/789542/6b03fec0a0ccbd378cb42d0c/Del.n.235_Liquidazione_premi_performance_anno_2024.pdf)
-- 2026-11-19 - Obiettivi Strategici in Materia di Prevenzione della Corruzione e Trasparenza 2027-2029 in attuazione dell'art. 1 comma 8 della L.190/2012. Definizione
-  - Atto: 235/2026
-  - ID: 788467
-  - Categoria: Delibera del Direttore Generale
-  - Settore: UFFICIO AMMINISTRAZIONE
-  - Scade il: 2026-12-04
-  - Stato: PUBBLICATO
-  - Tipo oggetto: 6500
-  - Oggetto radice: 788467
-  - Tipo oggetto radice: 6500
-  - Anno RPAP: 2026
-  - Data documento di origine: 2026-11-19
-  - Data numero PAP: 2026-11-19
-  - Ora numero PAP: 01:26:41
-  - Data numero RPAP: 2026-11-19
-  - Ora numero RPAP: 01:26:24
-  - Durata pubblicazione: 15
-  - Natura atto: 200152
-  - Numero documento di origine: 234
-  - Numero RPAP: 235
-  - Responsabile: SARLI MARGHERITA
-  - Codice settore proponente: 270981
-  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/788467/dettaglio-pap)
-  - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/788467)
-  - [Allegato](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/788467/6afeeafccfeafc3efd1c561c/Del.n.234_Obiettivi_strategici_in_materia_di_prevenzione_corruzione_e_trasparenza.pdf)
-- 2026-11-18 - FONDO FOUR SEASONS DGR 925/2023 14ª Liquidazione Contributi Turismo Scolastico, Congressuale, Sportivo e Culturale - anno 2023
-  - Atto: 234/2026
-  - ID: 787428
-  - Categoria: Delibera del Direttore Generale
-  - Settore: UFFICIO AMMINISTRAZIONE
-  - Scade il: 2026-12-03
-  - Stato: PUBBLICATO
-  - Tipo oggetto: 6500
-  - Oggetto radice: 787428
-  - Tipo oggetto radice: 6500
-  - Anno RPAP: 2026
-  - Data documento di origine: 2026-11-18
-  - Data numero PAP: 2026-11-18
-  - Ora numero PAP: 12:05:40
-  - Data numero RPAP: 2026-11-18
-  - Ora numero RPAP: 12:05:23
-  - Durata pubblicazione: 15
-  - Natura atto: 200152
-  - Numero documento di origine: 233
-  - Numero RPAP: 234
-  - Responsabile: BRUNI STEFANIA
-  - Codice settore proponente: 270981
-  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/787428/dettaglio-pap)
-  - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/787428)
-  - [Allegato](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/787428/6afd867d566d874d84ec8c0f/Del.n.233_Fondo_Four_Seasons_14__liquidazione_contributi_turismo_scolastico_ecc..pdf)
