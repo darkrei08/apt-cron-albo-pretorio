@@ -66,6 +66,7 @@ NOTICE_FIELDS = {
     "cntParentObjectId": "cntParentObjectId",
     "cntParentOtypeId": "cntParentOtypeId",
     "cntProponente": "cntProponente",
+    "cntResponsabileProcedimento": "cntResponsabileProcedimento",
     "cntSettoreProponente": "cntSettoreProponente",
 }
 
@@ -110,6 +111,7 @@ FIELD_LABELS = {
     "cntParentObjectId": "Oggetto padre",
     "cntParentOtypeId": "Tipo oggetto padre",
     "cntProponente": "Proponente",
+    "cntResponsabileProcedimento": "Responsabile",
     "cntSettoreProponente": "Codice settore proponente",
 }
 
@@ -653,6 +655,7 @@ MESSAGE_MAIN_FIELDS = (
     "number",
     "status",
     "expires",
+    "cntResponsabileProcedimento",
     "cntDataDocumentoOrigine",
 )
 MESSAGE_VALUE_LIMIT = 500
@@ -745,6 +748,10 @@ def format_message(notice, detail_base, updated=False, archived=False, today=Non
         head.append(f"<b>Pubblicato il:</b> {_esc(_display_date(notice['published']))}")
     if notice.get("expires"):
         head.append(f"<b>Scade il:</b> {_esc(_display_date(notice['expires']))}")
+    if notice.get("cntResponsabileProcedimento"):
+        head.append(
+            f"<b>Responsabile:</b> {_esc(notice['cntResponsabileProcedimento'])}"
+        )
     if notice.get("cntDataDocumentoOrigine"):
         head.append(
             f"<b>Documento del:</b> {_esc(_display_date(notice['cntDataDocumentoOrigine']))}"

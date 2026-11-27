@@ -8,19 +8,21 @@
 The repository enforces its publication boundary with two explicit allowlists and one generation
 path:
 
-- **Source allowlist.** `NOTICE_FIELDS` (`apt_cron.py:21-63`) maps 41 of the 53 source keys an act
+- **Source allowlist.** `NOTICE_FIELDS` (`apt_cron.py:21-63`) maps 42 of the 53 source keys an act
   carries: nine under stable output names (`id`, `title` = `cntTitle`, `category` =
   `cntNaturaAttoLabel`, `sector` = `cntSettoreProponenteLabel`, `published` =
   `cntDataInizioPubblicazione`, `expires` = `cntDataFinePubblicazione`, `year` =
-  `cntAnnoNumeroPap`, `number` = `cntNumeroPap`, `status`) and the other 32 under their register key.
+  `cntAnnoNumeroPap`, `number` = `cntNumeroPap`, `status`) and the other 33 under their register key,
+  including `cntResponsabileProcedimento` under ADR 0011.
   `parse_source_response` (`apt_cron.py:110-114`) projects each source item through that map, so a
   key the API returns but that is not listed is dropped before anything else in the program sees it.
-- **Excluded keys.** The 12 source keys that stay out are the internal account, login, audit and
-  responsible-person columns: `cntAutore`, `cntAutoreAnnullamento`,
+- **Excluded keys.** The 11 source keys that stay out are the internal account, login, audit and
+  remaining responsible-person columns: `cntAutore`, `cntAutoreAnnullamento`,
   `cntAutoreAnnullamentoLogin`, `cntAutoreLogin`, `cntAutoreRigetto`, `cntAutoreRigettoLogin`,
-  `cntResponsabileProcedimento`, `cntResponsabileProcedimentoLogin`,
-  `cntResponsabilePubblicazione`, `cntResponsabilePubblicazioneLogin`, `ultimaAnnotazioneModifica`
-  and `ultimaAnnotazioneRipubblicazione`. None of them is projected, fingerprinted or rendered.
+  `cntResponsabileProcedimentoLogin`, `cntResponsabilePubblicazione`,
+  `cntResponsabilePubblicazioneLogin`, `ultimaAnnotazioneModifica` and
+  `ultimaAnnotazioneRipubblicazione`. `cntResponsabileProcedimento` was excluded here and is now
+  published under ADR 0011. The other 11 remain unprojected.
 - **Index allowlist.** `INDEX_FIELDS` (`apt_cron.py:263`) is built from `NOTICE_FIELDS`, not written
   a second time: it is `tuple(NOTICE_FIELDS)` plus the derived `detail_url`, `document_url` and
   `attachment_urls`. `build_index` (`apt_cron.py:278-279`) projects through it, and `write_index`
@@ -30,9 +32,9 @@ path:
   index, and both are fingerprinted, so a change to either produces an "Atto aggiornato" message.
   This supersedes the earlier decision to keep them internal.
 - **Source payload carries more than the allowlist.** The test fixture
-  `tests/fixtures/source_response.json` includes `cntResponsabileProcedimento` alongside the allowed
-  fields; it is not in `NOTICE_FIELDS`, so it never reaches state, Telegram or the index. The fixture
-  is synthetic (`"NOT IN OUTPUT"`, `"ALSO NOT IN OUTPUT"`).
+  `tests/fixtures/source_response.json` includes synthetic values for `cntResponsabileProcedimento`;
+  that key is now in `NOTICE_FIELDS` under ADR 0011. The other responsible-person fields remain
+  excluded from the fixture projection.
 - **Two publication surfaces exist, both described as such.** Telegram is the intended surface. The
   generated index is written to `APT_INDEX_DIR` (`public/` by default, `apt_cron.py:580-581`), is not
   ignored by `.gitignore`, and is committed to this repository every hour by
@@ -50,7 +52,7 @@ Operator decisions are recorded below.
    changed `public/index.*` every hour from the repository's own default-hosted source, using the
    repository `GITHUB_TOKEN` and no Telegram credentials. Removal from Git history is not covered by
    any current procedure; that is accepted, and the index is retained indefinitely (ADR 0004 item 4).
-3. **Publish every publicly obtainable field.** Accepted: the published maximum is the 41 included
+3. **Publish every publicly obtainable field.** Accepted: the published maximum is the 42 included
    source keys plus the derived `detail_url`, `document_url` and `attachment_urls`. The included keys
    are the nine aliased ones (`id`, `cntTitle`, `cntNaturaAttoLabel`, `cntSettoreProponenteLabel`,
    `cntDataInizioPubblicazione`, `cntDataFinePubblicazione`, `cntAnnoNumeroPap`, `cntNumeroPap`,
@@ -60,12 +62,14 @@ Operator decisions are recorded below.
    `cntDataRigettoTime`, `cntDate`, `cntDocumentoOrigine`, `cntDurataPubblicazione`, `cntExternalId`,
    `cntExternalOggetto`, `cntExternalSource`, `cntExternalStatus`, `cntNaturaAtto`,
    `cntNoteAnnullamento`, `cntNoteRigetto`, `cntNumeri`, `cntNumeroDocumentoOrigine`, `cntNumeroGara`,
-   `cntNumeroRpap`, `cntParentObjectId`, `cntParentOtypeId`, `cntProponente`, `cntSettoreProponente`.
-   The 12 excluded keys are listed in Context. `Titolo` and `Settore` are published, so the Telegram
+   `cntNumeroRpap`, `cntParentObjectId`, `cntParentOtypeId`, `cntProponente`,
+   `cntResponsabileProcedimento`, `cntSettoreProponente`.
+   The 11 excluded keys are listed in Context. `Titolo`, `Settore` and `Responsabile` are published,
+   so the Telegram
    message, the document flow and the index carry them again. Adding one of the excluded keys, or
    dropping an included one, requires a new ADR.
 4. **Proof required for the PII boundary.** Accepted after a live source inspection: account, login,
-   responsible-person and last-annotation fields are excluded from the allowlist; every other field
+   remaining responsible-person and last-annotation fields are excluded from the allowlist; every other field
    returned for a public act is published, including free-text `Titolo` and `Settore`. A live title
    sample names economic operators ("in favore dell'operatore economico ..."); that text is register
    content and is now published deliberately. No redaction is applied.
@@ -117,8 +121,8 @@ Operator decisions are recorded below.
   `test_write_index_renders_every_non_empty_public_field`,
   `test_document_caption_carries_no_public_or_internal_text`,
   `test_writes_public_index_without_state_or_telegram`.
-- `tests/fixtures/source_response.json`: allowed fields plus `cntResponsabileProcedimento`, which is
-  dropped by the projection; values are synthetic.
+- `tests/fixtures/source_response.json`: allowed fields including `cntResponsabileProcedimento`, which
+  is projected under ADR 0011; all values are synthetic.
 - `README.md:22` (two publication surfaces and the published set), `:100` (what is saved and
   published), `:104` (operator duties, the reseed note and the new-decision clause).
 - `.gitignore`: `state/` and `cron.log` are ignored; `public/` is not.

@@ -15,7 +15,7 @@ import apt_cron
 FIXTURE = Path(__file__).parent / "fixtures" / "source_response.json"
 ATTACHMENT_FIXTURE = Path(__file__).parent / "fixtures" / "attachments_response.json"
 
-# The 41 source keys a filter response and an id query both expose, minus the 12 internal ones.
+# The 42 source keys a filter response and an id query both expose, minus the 11 internal ones.
 INCLUDED_SOURCE_FIELDS = (
     "id",
     "otypeId",
@@ -55,6 +55,7 @@ INCLUDED_SOURCE_FIELDS = (
     "cntParentObjectId",
     "cntParentOtypeId",
     "cntProponente",
+    "cntResponsabileProcedimento",
     "cntSettoreProponente",
     "cntSettoreProponenteLabel",
     "cntTitle",
@@ -67,7 +68,6 @@ EXCLUDED_SOURCE_FIELDS = (
     "cntAutoreLogin",
     "cntAutoreRigetto",
     "cntAutoreRigettoLogin",
-    "cntResponsabileProcedimento",
     "cntResponsabileProcedimentoLogin",
     "cntResponsabilePubblicazione",
     "cntResponsabilePubblicazioneLogin",
@@ -130,7 +130,7 @@ class ParseSourceResponseTest(unittest.TestCase):
             self.assertNotIn(name, notices[0])
         self.assertNotIn("PRIVATE", json.dumps(notices))
 
-    def test_extracts_the_fixture_values_and_drops_the_injected_person_field(self):
+    def test_extracts_the_fixture_values_including_the_responsible_person(self):
         response = json.loads(FIXTURE.read_text(encoding="utf-8"))
 
         notices = apt_cron.parse_source_response(response)
@@ -147,8 +147,8 @@ class ParseSourceResponseTest(unittest.TestCase):
         self.assertIsNone(notices[0]["cntNumeroGara"])
         self.assertEqual(notices[1]["number"], 243)
         self.assertEqual(set(notices[1]), set(apt_cron.NOTICE_FIELDS))
-        self.assertNotIn("NOT IN OUTPUT", json.dumps(notices))
-        self.assertNotIn("ALSO NOT IN OUTPUT", json.dumps(notices))
+        self.assertEqual(notices[0]["cntResponsabileProcedimento"], "RESPONSABILE TEST")
+        self.assertEqual(notices[1]["cntResponsabileProcedimento"], "SECONDO RESPONSABILE TEST")
 
     def test_rejects_missing_or_malformed_results(self):
         for response in ({}, {"results": None}, {"results": ["not an object"]}):
@@ -169,6 +169,25 @@ class FormatMessageTest(unittest.TestCase):
             ),
             "https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/791962/dettaglio-pap",
         )
+
+    def test_responsible_is_escaped_bounded_and_rendered_after_expiry(self):
+        notice = first_notice()
+        notice["cntResponsabileProcedimento"] = '<script>"&' + "x" * 2000
+
+        message = apt_cron.format_message(notice, "https://example.test/base")
+        lines = message.splitlines()
+        expiry = next(i for i, line in enumerate(lines) if line.startswith("<b>Scade il:</b>"))
+        responsible = next(
+            i for i, line in enumerate(lines) if line.startswith("<b>Responsabile:</b>")
+        )
+
+        self.assertEqual(responsible, expiry + 1)
+        self.assertIn("&lt;script&gt;", message)
+        self.assertNotIn("<script>", message)
+        self.assertEqual(
+            len(lines[responsible].split("</b> ", 1)[1]), apt_cron.MESSAGE_VALUE_LIMIT
+        )
+        self.assertLessEqual(len(message), apt_cron.TELEGRAM_TEXT_LIMIT)
 
     def test_formats_a_readable_html_message(self):
         notice = first_notice()
@@ -199,6 +218,7 @@ class FormatMessageTest(unittest.TestCase):
                     "<b>Titolo:</b> Affidamento diretto per la sala espositiva",
                     "<b>Pubblicato il:</b> 25/11/2026",
                     "<b>Scade il:</b> 10/12/2026",
+                    "<b>Responsabile:</b> RESPONSABILE TEST",
                     "#Delibera_del_Direttore_Generale #UFFICIO_AMMINISTRAZIONE",
                     "<b>Stato:</b> PUBBLICATO",
                     "<blockquote expandable>ID: 791962</blockquote>",
@@ -1835,6 +1855,14 @@ class PublishedFieldSetTest(unittest.TestCase):
 
 
 class PublicIndexTest(unittest.TestCase):
+    def test_responsible_is_indexed_and_fingerprinted(self):
+        notices = apt_cron.parse_source_response(json.loads(FIXTURE.read_text(encoding="utf-8")))
+        row = apt_cron.build_index(notices)["notices"][0]
+        changed = dict(notices[0], cntResponsabileProcedimento="ALTRO")
+
+        self.assertEqual(row["cntResponsabileProcedimento"], "RESPONSABILE TEST")
+        self.assertNotEqual(apt_cron.fingerprint(notices[0]), apt_cron.fingerprint(changed))
+
     def test_build_index_publishes_every_public_field(self):
         notice = full_notice()
         notice.update(
@@ -1945,7 +1973,8 @@ class RefreshIndexTest(unittest.TestCase):
         self.assertEqual(set(first), set(apt_cron.INDEX_FIELDS))
         self.assertEqual(first["title"], "Affidamento diretto per la sala espositiva")
         self.assertEqual(first["sector"], "UFFICIO AMMINISTRAZIONE")
-        self.assertNotIn("NOT IN OUTPUT", json.dumps(index))
+        self.assertEqual(first["cntResponsabileProcedimento"], "RESPONSABILE TEST")
+        self.assertNotIn("PRIVATE", json.dumps(index))
 
     def test_cli_refresh_index_needs_no_telegram_credentials(self):
         response = json.loads(FIXTURE.read_text(encoding="utf-8"))

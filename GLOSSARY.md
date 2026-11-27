@@ -13,7 +13,7 @@ A public act listed in the Source register and identified by its official number
 _Avoid_: atto, act, record, item
 
 **Published field set**:
-Every public field the Source register exposes for a Public notice, minus the internal account, login, audit and responsible-person fields, plus the derived official links. The same set reaches every Publication surface.
+Every public field the Source register exposes for a Public notice, including the procedural responsible person, minus the internal account, login, audit and remaining responsible-person fields, plus the derived official links. The same allowlist feeds every Publication surface; Telegram rendering may clip trailing quote lines under its message budget.
 _Avoid_: schema, payload, dump
 
 **Notice identity**:
@@ -33,7 +33,7 @@ An official source URL for a PDF that belongs to a Public notice. The project pu
 _Avoid_: attachment, document blob, file
 
 **Generated index**:
-The derived publication of the current Public notices from allowed public fields. It is regenerated from the Source register and reviewed by the Operator before publication.
+The derived publication of the current Public notices from allowed public fields. It is regenerated from the Source register and committed unattended by the hourly workflow.
 _Avoid_: archive, feed, catalogue
 
 **Publication surface**:
