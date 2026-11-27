@@ -461,7 +461,7 @@ def enrich_notices(
         item = dict(notice)
         key = notice_key(item)
         if item.get("id") not in (None, ""):
-            item["detail_url"] = f"{detail_base.rstrip('/')}/{item['id']}"
+            item["detail_url"] = build_detail_url(detail_base, item["id"])
         cached = attachments.get(key)
         # The stored fingerprint was taken with the cached links applied, so it still
         # matches only while the source metadata is unchanged. A changed notice may have
@@ -727,7 +727,9 @@ def format_message(notice, detail_base, updated=False, archived=False, today=Non
         f"<b>{headline}</b>",
         f"<u>Atto {_esc(notice.get('number'))}/{_esc(notice.get('year'))}</u>",
     ]
-    detail_url = notice.get("detail_url") or f"{detail_base.rstrip('/')}/{notice.get('id') or ''}"
+    detail_url = notice.get("detail_url") or build_detail_url(
+        detail_base, notice.get("id") or ""
+    )
     head.append(_link(detail_url, "Atto ufficiale"))
     if notice.get("document_url"):
         head.append(_link(notice["document_url"], "PDF ufficiale"))
@@ -837,6 +839,12 @@ TELEGRAM_PROFILES = {
     "production": ("TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"),
     "test": ("APT_TEST_TELEGRAM_BOT_TOKEN", "APT_TEST_TELEGRAM_CHAT_ID"),
 }
+DETAIL_PATH_SUFFIX = "/dettaglio-pap"
+
+
+def build_detail_url(base, notice_id):
+    """The official register serves act details only under the dettaglio-pap path."""
+    return f"{base.rstrip('/')}/{notice_id}{DETAIL_PATH_SUFFIX}"
 
 
 def telegram_credentials(profile):

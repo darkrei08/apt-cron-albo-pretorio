@@ -160,6 +160,15 @@ def quoted_part(message):
 
 
 class FormatMessageTest(unittest.TestCase):
+    def test_builds_the_official_detail_link_with_the_register_suffix(self):
+        self.assertEqual(
+            apt_cron.build_detail_url(
+                "https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio",
+                791962,
+            ),
+            "https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/791962/dettaglio-pap",
+        )
+
     def test_formats_a_readable_html_message(self):
         notice = first_notice()
         # Production enriches notices with attachment links before formatting.
@@ -182,7 +191,7 @@ class FormatMessageTest(unittest.TestCase):
                 [
                     "<b>Nuovo atto APT Basilicata</b>",
                     "<u>Atto 244/2026</u>",
-                    '<a href="https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/791962">Atto ufficiale</a>',
+                    '<a href="https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/791962/dettaglio-pap">Atto ufficiale</a>',
                     '<a href="https://example.test/katti/public/pap/edoc/download/unico/6500/791962">PDF ufficiale</a>',
                     '<a href="https://example.test/katti/public/pap/edoc/download/single/6500/791962/abc/notice.pdf">Allegato</a>',
                     '<a href="https://example.test/katti/public/pap/edoc/download/single/6500/791962/def/non-pdf.png">Allegato</a>',
@@ -668,7 +677,8 @@ class SyntheticTelegramHtmlValidationTest(unittest.TestCase):
         message = apt_cron.format_message(notice, "https://example.test/other-base")
 
         self.assertIn(
-            '<a href="https://example.test/other-base/791962">Atto ufficiale</a>', message
+            '<a href="https://example.test/other-base/791962/dettaglio-pap">Atto ufficiale</a>',
+            message,
         )
         self.assertIn(
             '<a href="https://example.test/documento-unico.pdf">PDF ufficiale</a>', message
@@ -1737,7 +1747,7 @@ class RefreshIndexTest(unittest.TestCase):
         first = index["notices"][0]
         self.assertEqual(
             first["detail_url"],
-            "https://example.test/albo-pretorio/dettaglio/791962",
+            "https://example.test/albo-pretorio/dettaglio/791962/dettaglio-pap",
         )
         self.assertEqual(
             first["document_url"],

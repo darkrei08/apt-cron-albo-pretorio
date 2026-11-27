@@ -106,7 +106,7 @@ its structural template; real values are escaped and clipped before sending:
 ```html
 <b>Nuovo atto APT Basilicata</b>
 <u>Atto &lt;number&gt;/&lt;year&gt;</u>
-<a href="https://.../dettaglio/&lt;id&gt;">Atto ufficiale</a>
+<a href="https://.../dettaglio/&lt;id&gt;/dettaglio-pap">Atto ufficiale</a>
 <a href="https://.../download/unico/...">PDF ufficiale</a>
 <a href="https://.../download/single/...">Allegato</a>
 <b>Titolo:</b> &lt;title&gt;
