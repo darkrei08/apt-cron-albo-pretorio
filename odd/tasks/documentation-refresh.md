@@ -28,6 +28,8 @@ L2: Release authorization: `fai commit locali test pr push e relase su github ci
 
 L3: Text to clarify: `pi heder rocehstrartion pi worjflwo extensible engienring exxelence`
 
-L4: Commit `1baf369` holds the portal monitor, its tests and ADR 0012. Commit `ef37e08` holds the README, wiki, local wayfinder, review-rule exception and this task document.
+L4: After rebase on `origin/main` `1ac5260`, commit `835f3bb` holds the portal monitor, its tests and ADR 0012. Commit `0ebdbe0` holds the README, wiki, local wayfinder and review-rule exception. Commit `2472376` records this delivery slice.
 
-L5: Delivery slice: 1110 authored changed lines across two commits on `feat/portal-monitor-and-wiki`. No chained PR policy exists in this repository, so the slice stays in one PR and is recorded here as a review-workload note.
+L5: Delivery slice: 1114 authored changed lines across three commits on `feat/portal-monitor-and-wiki`. No chained PR policy exists in this repository, so the slice stays in PR #36 and is recorded here as a review-workload note.
+
+L6: Version remains `[INSERT VERSIONE]`. No tag, changelog or product-version convention exists; no tag or GitHub release was created. ADR 0007 remains HOLD and issue #32 has no evidenced GO, so PR #36 was not merged.

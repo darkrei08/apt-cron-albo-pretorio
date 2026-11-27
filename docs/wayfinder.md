@@ -19,6 +19,15 @@ A professional Italian README, an operational wiki under `docs/wiki/`, and track
 - `portal_monitor.py`, its tests and ADR 0012 added.
 - CI commands: `python3 -m py_compile apt_cron.py tests/test_apt_cron.py` and `python3 -m unittest discover -s tests -v`.
 - Local verification: 121 tests PASS, `py_compile` PASS, `git diff --check` PASS.
+- PR #36 is open, mergeable, and its required `test` check passes.
+
+## Release decision
+
+- Operator authorized the full release cycle and asked to record GO.
+- Gate registry: ADR 0007 and issue #32. Current recorded status remains HOLD / no evidenced GO: parts 1-2 PASS, parts 3-5 BLOCKED by missing rotated credentials, unexecuted private HTML validation, unexecuted manual run and unexecuted rollback rehearsal.
+- This authorization is not represented as a passed gate. No GO is claimed without the five required parts.
+- Version: `[INSERT VERSIONE]`. No tag, changelog, product-version convention or release exists in 56 commits, remote tags, remote releases or repository metadata.
+- Therefore PR #36 is not merged and no tag or GitHub release is created.
 
 ## Risks
 
@@ -41,9 +50,11 @@ A professional Italian README, an operational wiki under `docs/wiki/`, and track
 ## To clarify
 
 - The unclear operator text is recorded verbatim in `odd/tasks/documentation-refresh.md`.
+- Exact unresolved point: intended action and meaning of the phrase. It is unclear whether it refers to header/orchestration, workflow extension or engineering-excellence work. No repository, history, issue or PR evidence resolves it.
 
 ## Next actions
 
-- Complete local commits, tests and PR.
-- Determine the release version from history or repository evidence before publishing a release.
-- Record a new release-gate decision before publishing.
+- Supply `[INSERT VERSIONE]` or define a versioning convention.
+- Satisfy and record ADR 0007 parts 3-5, then record an evidenced GO on issue #32.
+- Merge PR #36 only after the gate decision and version are available.
+- Clarify the garbled operator phrase before acting on it.
