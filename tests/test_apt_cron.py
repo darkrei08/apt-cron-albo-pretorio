@@ -7,6 +7,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest import mock
+from urllib.error import HTTPError
 
 import apt_cron
 
@@ -1637,6 +1638,173 @@ class UrllibDocumentUploadTest(unittest.TestCase):
         self.assertEqual(content, DOCUMENT_BYTES)
         self.assertEqual(captured["timeout"], 20)
         self.assertEqual(captured["amount"], apt_cron.DOCUMENT_MAX_BYTES + 1)
+
+
+class TelegramRateLimitTest(unittest.TestCase):
+    URL = "https://api.telegram.org/botTEST_TOKEN/sendMessage"
+
+    def response(self, payload):
+        class Response:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self, *args):
+                return json.dumps(payload).encode("utf-8")
+
+        return Response()
+
+    def rate_error(self, retry_after="2"):
+        return HTTPError(self.URL, 429, "Too Many Requests", {"Retry-After": retry_after}, None)
+
+    def body_rate_error(self, payload):
+        return HTTPError(
+            self.URL,
+            429,
+            "Too Many Requests",
+            {},
+            io.BytesIO(json.dumps(payload).encode("utf-8")),
+        )
+
+    def test_publish_message_retries_http_429(self):
+        success = self.response({"ok": True, "result": {"message_id": 7}})
+        with mock.patch.object(
+            apt_cron, "urlopen", side_effect=[self.rate_error(), success]
+        ) as opened, mock.patch.object(apt_cron.time, "sleep") as slept:
+            result = apt_cron.publish_message(
+                apt_cron.UrllibTransport(), self.URL, "@test_channel", "text"
+            )
+
+        self.assertEqual(result, {"message_id": 7})
+        self.assertEqual(opened.call_count, 2)
+        self.assertEqual(slept.call_args_list, [mock.call(2)])
+
+    def test_publish_message_retries_json_429(self):
+        limited = self.response(
+            {
+                "ok": False,
+                "error_code": 429,
+                "description": "Too Many Requests",
+                "parameters": {"retry_after": 3},
+            }
+        )
+        success = self.response({"ok": True, "result": {"message_id": 8}})
+        with mock.patch.object(
+            apt_cron, "urlopen", side_effect=[limited, success]
+        ) as opened, mock.patch.object(apt_cron.time, "sleep") as slept:
+            result = apt_cron.publish_message(
+                apt_cron.UrllibTransport(), self.URL, "@test_channel", "text"
+            )
+
+        self.assertEqual(result, {"message_id": 8})
+        self.assertEqual(opened.call_count, 2)
+        self.assertEqual(slept.call_args_list, [mock.call(3)])
+
+    def test_send_document_retries_http_429(self):
+        success = self.response({"ok": True, "result": {"message_id": 9}})
+        with mock.patch.object(
+            apt_cron, "urlopen", side_effect=[self.rate_error("4"), success]
+        ) as opened, mock.patch.object(apt_cron.time, "sleep") as slept:
+            result = apt_cron.UrllibTransport().send_document(
+                "https://api.telegram.org/botTEST_TOKEN/sendDocument",
+                {"chat_id": "@test_channel", "caption": "PDF ufficiale"},
+                "notice.pdf",
+                DOCUMENT_BYTES,
+            )
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(opened.call_count, 2)
+        self.assertEqual(slept.call_args_list, [mock.call(4)])
+
+    def test_rate_limit_retries_are_bounded(self):
+        errors = [self.rate_error() for _ in range(apt_cron.TELEGRAM_RATE_LIMIT_ATTEMPTS)]
+        with mock.patch.object(apt_cron, "urlopen", side_effect=errors) as opened, mock.patch.object(
+            apt_cron.time, "sleep"
+        ) as slept, self.assertRaises(HTTPError):
+            apt_cron.publish_message(
+                apt_cron.UrllibTransport(), self.URL, "@test_channel", "text"
+            )
+
+        self.assertEqual(opened.call_count, apt_cron.TELEGRAM_RATE_LIMIT_ATTEMPTS)
+        self.assertEqual(slept.call_count, apt_cron.TELEGRAM_RATE_LIMIT_ATTEMPTS - 1)
+
+    def test_http_429_json_body_supplies_retry_after(self):
+        limited = self.body_rate_error(
+            {"ok": False, "error_code": 429, "parameters": {"retry_after": 30}}
+        )
+        success = self.response({"ok": True, "result": {"message_id": 10}})
+        with mock.patch.object(
+            apt_cron, "urlopen", side_effect=[limited, success]
+        ) as opened, mock.patch.object(apt_cron.time, "sleep") as slept:
+            result = apt_cron.publish_message(
+                apt_cron.UrllibTransport(), self.URL, "@test_channel", "text"
+            )
+
+        self.assertEqual(result, {"message_id": 10})
+        self.assertEqual(opened.call_count, 2)
+        self.assertEqual(slept.call_args_list, [mock.call(30)])
+
+    def test_retry_after_is_capped_per_wait(self):
+        success = self.response({"ok": True, "result": {"message_id": 11}})
+        with mock.patch.object(
+            apt_cron, "urlopen", side_effect=[self.rate_error("120"), success]
+        ), mock.patch.object(apt_cron.time, "sleep") as slept:
+            apt_cron.publish_message(
+                apt_cron.UrllibTransport(), self.URL, "@test_channel", "text"
+            )
+
+        self.assertEqual(slept.call_args_list, [mock.call(apt_cron.TELEGRAM_RATE_LIMIT_MAX_DELAY)])
+
+    def test_non_finite_retry_after_falls_back_to_one_second(self):
+        for value in ("inf", "1e400", "abc"):
+            with self.subTest(value=value):
+                success = self.response({"ok": True, "result": {"message_id": 12}})
+                with mock.patch.object(
+                    apt_cron, "urlopen", side_effect=[self.rate_error(value), success]
+                ), mock.patch.object(apt_cron.time, "sleep") as slept:
+                    result = apt_cron.publish_message(
+                        apt_cron.UrllibTransport(), self.URL, "@test_channel", "text"
+                    )
+
+                self.assertEqual(result, {"message_id": 12})
+                self.assertEqual(slept.call_args_list, [mock.call(1)])
+
+    def test_telegram_host_check_uses_the_hostname(self):
+        error = HTTPError(
+            "https://example.test/api.telegram.org",
+            429,
+            "Too Many Requests",
+            {"Retry-After": "2"},
+            None,
+        )
+        with mock.patch.object(
+            apt_cron, "urlopen", side_effect=error
+        ) as opened, mock.patch.object(apt_cron.time, "sleep") as slept, self.assertRaises(
+            HTTPError
+        ):
+            apt_cron.UrllibTransport().request(
+                "POST", "https://example.test/api.telegram.org", {"chat_id": "@test_channel"}
+            )
+
+        self.assertEqual(opened.call_count, 1)
+        slept.assert_not_called()
+
+    def test_source_requests_are_not_retried(self):
+        with mock.patch.object(
+            apt_cron,
+            "urlopen",
+            side_effect=self.rate_error(),
+        ) as opened, mock.patch.object(apt_cron.time, "sleep") as slept, self.assertRaises(
+            HTTPError
+        ):
+            apt_cron.UrllibTransport().request(
+                "POST", "https://example.test/filter", {"dataOption": "all"}
+            )
+
+        self.assertEqual(opened.call_count, 1)
+        slept.assert_not_called()
 
 
 class PublishedFieldSetTest(unittest.TestCase):

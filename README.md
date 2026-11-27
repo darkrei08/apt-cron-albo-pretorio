@@ -225,6 +225,9 @@ the job, protecting logs, checking that the Telegram bot has the right permissio
 
 - `APT_PAGE_SIZE` must be a positive integer; invalid values exit with status 2.
 - Runtime failures print a single redacted line, so `TELEGRAM_BOT_TOKEN` is not written to logs.
+- Telegram HTTP `429` responses are retried with the `Retry-After` header or the JSON
+  `parameters.retry_after` body, up to six attempts and a 60-second cap per wait; non-Telegram requests
+  are not retried.
 - Telegram HTML is bounded to 4096 characters; the expandable quote is clipped and, only if the visible part alone overflows, its trailing lines are dropped. Tags stay balanced, so Telegram accepts the message.
 - Every dynamic value is escaped with `html.escape(..., quote=True)` before it reaches the HTML message.
 - Document captions state the act number and year and are bounded to 1024 characters.

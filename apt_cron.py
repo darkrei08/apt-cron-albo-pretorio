@@ -7,15 +7,19 @@ import os
 import re
 import sys
 import tempfile
+import time
 import unicodedata
 from datetime import date
 from pathlib import Path
+from urllib.error import HTTPError
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
 
 HTTP_TIMEOUT = 20
 DOCUMENT_UPLOAD_TIMEOUT = 120
+TELEGRAM_RATE_LIMIT_ATTEMPTS = 6
+TELEGRAM_RATE_LIMIT_MAX_DELAY = 60
 USER_AGENT = "apt-cron/1.0"
 # Telegram's documented document upload limit, also the in-memory fetch bound.
 DOCUMENT_MAX_BYTES = 50 * 1024 * 1024
@@ -781,6 +785,63 @@ def multipart_body(fields, filename, content):
 
 
 class UrllibTransport:
+    @staticmethod
+    def _error_payload(error):
+        try:
+            payload = json.loads(error.read().decode("utf-8"))
+        except (AttributeError, OSError, ValueError):
+            return None
+        return payload if isinstance(payload, dict) else None
+
+    def _retry_rate_limit(self, url, error=None, payload=None, attempt=0):
+        parts = urlsplit(url)
+        if parts.scheme != "https" or parts.hostname != "api.telegram.org":
+            return False
+        if attempt + 1 >= TELEGRAM_RATE_LIMIT_ATTEMPTS:
+            return False
+        if error is not None and error.code != 429:
+            return False
+        if error is not None and payload is None:
+            # A 429 body can carry parameters.retry_after even without a Retry-After header.
+            payload = self._error_payload(error)
+        if error is None and (
+            not isinstance(payload, dict) or payload.get("error_code") != 429
+        ):
+            return False
+        retry_after = None
+        if isinstance(payload, dict) and payload.get("error_code") == 429:
+            parameters = payload.get("parameters") or {}
+            retry_after = parameters.get("retry_after") if isinstance(parameters, dict) else None
+        if error is not None:
+            headers = error.headers or {}
+            retry_after = headers.get("Retry-After") or retry_after
+            try:
+                error.close()
+            except AttributeError:
+                pass
+        try:
+            delay = int(float(retry_after))
+        except (TypeError, ValueError, OverflowError):
+            delay = 1
+        time.sleep(min(max(delay, 1) + attempt, TELEGRAM_RATE_LIMIT_MAX_DELAY))
+        return True
+
+    def _request_json(self, request, timeout):
+        attempt = 0
+        while True:
+            try:
+                with urlopen(request, timeout=timeout) as response:
+                    payload = json.loads(response.read().decode("utf-8"))
+                if self._retry_rate_limit(request.full_url, payload=payload, attempt=attempt):
+                    attempt += 1
+                    continue
+                return payload
+            except HTTPError as error:
+                if self._retry_rate_limit(request.full_url, error=error, attempt=attempt):
+                    attempt += 1
+                    continue
+                raise
+
     def request(self, method, url, payload=None):
         data = json.dumps(payload).encode("utf-8") if payload is not None else None
         request = Request(
@@ -793,8 +854,7 @@ class UrllibTransport:
             },
             method=method,
         )
-        with urlopen(request, timeout=HTTP_TIMEOUT) as response:
-            return json.loads(response.read().decode("utf-8"))
+        return self._request_json(request, HTTP_TIMEOUT)
 
     def fetch_bytes(self, url):
         if not public_url(url):
@@ -816,8 +876,7 @@ class UrllibTransport:
             },
             method="POST",
         )
-        with urlopen(request, timeout=DOCUMENT_UPLOAD_TIMEOUT) as response:
-            return json.loads(response.read().decode("utf-8"))
+        return self._request_json(request, DOCUMENT_UPLOAD_TIMEOUT)
 
 
 def parse_positive_int(value, name):
