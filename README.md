@@ -219,14 +219,15 @@ repository `GITHUB_TOKEN`.
 `APT_ENV_FILE` file, or the protected environment file, choosing the state and index paths, scheduling
 the job, protecting logs, checking that the Telegram bot has the right permissions, monitoring failures, and answering data-rights requests. Withdrawal is not automated: a withdrawn notice stays in the channel as the permanent record and leaves the index on the next hourly refresh (ADR 0004). Publishing a key that the allowlist excludes (an internal account, login, audit or responsible-person field) would require a new Wayfinder decision; every other public field of an act is already published. After a change to the field set, reseed state once as described above.
 
-**Not verified:** no production cron schedule was installed. A live `sendMessage` and multipart `sendDocument` both succeeded in the private validation channel: one notice produced one text message and two documents; the historical fixture contained PDFs only and did not validate non-PDF attachments. That validation predates the current HTML message format, so HTML rendering and all-attachment delivery remain unverified until the private checklist is rerun. A `sendDocument` that passed the official PDF URL failed earlier with `400 Bad Request: failed to get HTTP URL content`, which is why documents are now uploaded as bytes. The `--refresh-index` path was exercised against the live source; long-term source availability, workflow longevity and rendering in other Telegram clients remain unverified.
+**Not verified:** no production cron schedule was installed. A live `sendMessage` and multipart `sendDocument` both succeeded in the private validation channel: one notice produced one text message and two documents; the historical fixture contained PDFs only and did not validate non-PDF attachments. That validation predates the current HTML message format, so live HTML rendering and live all-attachment delivery remain unverified until the private checklist is rerun; their simulated behavior is covered by unit tests. A `sendDocument` that passed the official PDF URL failed earlier with `400 Bad Request: failed to get HTTP URL content`, which is why documents are now uploaded as bytes. The `--refresh-index` path was exercised against the live source; long-term source availability, workflow longevity and rendering in other Telegram clients remain unverified.
 
 ## Production checks
 
 - `APT_PAGE_SIZE` must be a positive integer; invalid values exit with status 2.
 - Runtime failures print a single redacted line, so `TELEGRAM_BOT_TOKEN` is not written to logs.
 - Telegram HTTP `429` responses are retried with the `Retry-After` header or the JSON
-  `parameters.retry_after` body, up to six attempts and a 60-second cap per wait; non-Telegram requests
+  `parameters.retry_after` body, up to six attempts and a 60-second cap per wait. Transient Telegram
+  connection resets are retried with exponential backoff up to the same bound; non-Telegram requests
   are not retried.
 - Telegram HTML is bounded to 4096 characters; the expandable quote is clipped and, only if the visible part alone overflows, its trailing lines are dropped. Tags stay balanced, so Telegram accepts the message.
 - Every dynamic value is escaped with `html.escape(..., quote=True)` before it reaches the HTML message.

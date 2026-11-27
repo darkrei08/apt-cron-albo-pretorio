@@ -7,7 +7,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest import mock
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 
 import apt_cron
 
@@ -1790,6 +1790,20 @@ class TelegramRateLimitTest(unittest.TestCase):
 
         self.assertEqual(opened.call_count, 1)
         slept.assert_not_called()
+
+    def test_connection_reset_is_retried(self):
+        success = self.response({"ok": True, "result": {"message_id": 10}})
+        reset = URLError(ConnectionResetError(104, "Connection reset by peer"))
+        with mock.patch.object(
+            apt_cron, "urlopen", side_effect=[reset, success]
+        ) as opened, mock.patch.object(apt_cron.time, "sleep") as slept:
+            result = apt_cron.publish_message(
+                apt_cron.UrllibTransport(), self.URL, "@test_channel", "text"
+            )
+
+        self.assertEqual(result, {"message_id": 10})
+        self.assertEqual(opened.call_count, 2)
+        self.assertEqual(slept.call_args_list, [mock.call(1)])
 
     def test_source_requests_are_not_retried(self):
         with mock.patch.object(

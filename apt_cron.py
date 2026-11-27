@@ -11,7 +11,7 @@ import time
 import unicodedata
 from datetime import date
 from pathlib import Path
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
@@ -826,6 +826,15 @@ class UrllibTransport:
         time.sleep(min(max(delay, 1) + attempt, TELEGRAM_RATE_LIMIT_MAX_DELAY))
         return True
 
+    def _retry_transient_error(self, url, attempt):
+        parts = urlsplit(url)
+        if parts.scheme != "https" or parts.hostname != "api.telegram.org":
+            return False
+        if attempt + 1 >= TELEGRAM_RATE_LIMIT_ATTEMPTS:
+            return False
+        time.sleep(min(2**attempt, 8))
+        return True
+
     def _request_json(self, request, timeout):
         attempt = 0
         while True:
@@ -838,6 +847,11 @@ class UrllibTransport:
                 return payload
             except HTTPError as error:
                 if self._retry_rate_limit(request.full_url, error=error, attempt=attempt):
+                    attempt += 1
+                    continue
+                raise
+            except URLError:
+                if self._retry_transient_error(request.full_url, attempt):
                     attempt += 1
                     continue
                 raise
