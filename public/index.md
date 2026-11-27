@@ -21,9 +21,9 @@
   - Numero documento di origine: 252
   - Numero RPAP: 253
   - Codice settore proponente: 270981
-  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/793331)
+  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/793331/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/793331)
-  - [Allegato PDF](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/793331/6b0862821a1c1217b9ac6286/Del.n.252_Affidamento_manutenzione_siepi_area_parcheggio_APT.pdf)
+  - [Allegato](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/793331/6b0862821a1c1217b9ac6286/Del.n.252_Affidamento_manutenzione_siepi_area_parcheggio_APT.pdf)
 - 2026-11-26 - Attivazione Convenzione per tirocini "curriculari" con l'Università degli studi di Bergamo
   - Atto: 252/2026
   - ID: 793329
@@ -45,9 +45,9 @@
   - Numero documento di origine: 251
   - Numero RPAP: 252
   - Codice settore proponente: 270981
-  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/793329)
+  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/793329/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/793329)
-  - [Allegato PDF](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/793329/6b08624d77bbd936da87cd77/Del.n.251_Attivazione_convenzione_universit__di_Bergamo.pdf)
+  - [Allegato](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/793329/6b08624d77bbd936da87cd77/Del.n.251_Attivazione_convenzione_universit__di_Bergamo.pdf)
 - 2026-11-26 - Affidamento servizio di vigilanza e accoglienza e fornitura dei sistemi di sicurezza per la mostra "Ercolano. L'arte di vivere", in programma dal 23 dicembre 2026 al 23 giugno 2027 presso la Chiesa di San Domenico a Venosa. - Security Department Srl
   - Atto: 251/2026
   - ID: 793327
@@ -69,9 +69,9 @@
   - Numero documento di origine: 250
   - Numero RPAP: 251
   - Codice settore proponente: 270981
-  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/793327)
+  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/793327/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/793327)
-  - [Allegato PDF](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/793327/6b0861fe1ef3d1378cd7132f/Del.n.250_Affidamento_servizio_vigilanza_mostra_Ercolano_a_Venosa.pdf)
+  - [Allegato](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/793327/6b0861fe1ef3d1378cd7132f/Del.n.250_Affidamento_servizio_vigilanza_mostra_Ercolano_a_Venosa.pdf)
 - 2026-11-26 - D.G.R. 423/2025 - "P.A.R.T.I. Basilicata! Piano di Azione per la Ripresa del Turismo in Basilicata" biennio 2025 - 2026 [Azione 1.2 - Piano comunicazione rilancio e media planning] Affidamento servizi di realizzazione di azioni promopubblicitarie nell'ambito della campagna autunno-inverno 2026.
   - Atto: 250/2026
   - ID: 793325
@@ -93,9 +93,9 @@
   - Numero documento di origine: 249
   - Numero RPAP: 250
   - Codice settore proponente: 270981
-  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/793325)
+  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/793325/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/793325)
-  - [Allegato PDF](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/793325/6b0861c3291a15273941ffec/Del.n.249_Affidamento_servizi_promopubblicitari.pdf)
+  - [Allegato](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/793325/6b0861c3291a15273941ffec/Del.n.249_Affidamento_servizi_promopubblicitari.pdf)
 - 2026-11-26 - Contributo ANAC su procedure di gara sopra i 40 mila euro.
   - Atto: 249/2026
   - ID: 793323
@@ -117,9 +117,9 @@
   - Numero documento di origine: 248
   - Numero RPAP: 249
   - Codice settore proponente: 270981
-  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/793323)
+  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/793323/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/793323)
-  - [Allegato PDF](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/793323/6b08618c50b93f028259ff4f/Del.n.248_Contributo_ANAC.pdf)
+  - [Allegato](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/793323/6b08618c50b93f028259ff4f/Del.n.248_Contributo_ANAC.pdf)
 - 2026-11-26 - Spese telepass per canone, pedaggi e parcheggi.
   - Atto: 248/2026
   - ID: 793321
@@ -141,9 +141,9 @@
   - Numero documento di origine: 247
   - Numero RPAP: 248
   - Codice settore proponente: 270981
-  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/793321)
+  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/793321/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/793321)
-  - [Allegato PDF](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/793321/6b0861551a1c1217b9ac60f0/Del.n.247_Spese_telepass.pdf)
+  - [Allegato](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/793321/6b0861551a1c1217b9ac60f0/Del.n.247_Spese_telepass.pdf)
 - 2026-11-26 - Impegno di spesa per gestione Carte di Credito
   - Atto: 247/2026
   - ID: 793319
@@ -165,9 +165,9 @@
   - Numero documento di origine: 246
   - Numero RPAP: 247
   - Codice settore proponente: 270981
-  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/793319)
+  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/793319/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/793319)
-  - [Allegato PDF](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/793319/6b08611c50b93f028259feaf/Del.n.246_Impegno_spesa_gestione_carte_di_credito.pdf)
+  - [Allegato](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/793319/6b08611c50b93f028259feaf/Del.n.246_Impegno_spesa_gestione_carte_di_credito.pdf)
 - 2026-11-26 - Spese condominiali Sedi APT Potenza e Matera.
   - Atto: 246/2026
   - ID: 793315
@@ -189,9 +189,9 @@
   - Numero documento di origine: 245
   - Numero RPAP: 246
   - Codice settore proponente: 270981
-  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/793315)
+  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/793315/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/793315)
-  - [Allegato PDF](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/793315/6b0860e350b93f028259fe2a/Del.n.245_Spese_condominiali.pdf)
+  - [Allegato](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/793315/6b0860e350b93f028259fe2a/Del.n.245_Spese_condominiali.pdf)
 - 2026-11-26 - Missioni varie e partecipazione ad eventi, manifestazioni promozionali e missioni di contatto del Direttore Generale, degli altri Organi dell'APT e del personale dipendente e collaboratori
   - Atto: 245/2026
   - ID: 793313
@@ -213,9 +213,9 @@
   - Numero documento di origine: 244
   - Numero RPAP: 245
   - Codice settore proponente: 270981
-  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/793313)
+  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/793313/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/793313)
-  - [Allegato PDF](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/793313/6b0860ac291a15273941fe6f/Del.n.244_Missioni_varie_e_partecipazioni_a_manifestazioni.pdf)
+  - [Allegato](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/793313/6b0860ac291a15273941fe6f/Del.n.244_Missioni_varie_e_partecipazioni_a_manifestazioni.pdf)
 - 2026-11-25 - Affidamento diretto ai sensi dell'art. 50, comma 1, lett.b) del D.Lgs. N. 36/2023 del servizio di riadattamento sala espositiva e installazione allestimento "Motherland-Patrimonio Vivo: l'arte di diventare Basilicata" presso "OpenSpace Basilicata" di Matera, in favore dell'operatore economico Quadrum Srl
   - Atto: 244/2026
   - ID: 791962
@@ -237,9 +237,9 @@
   - Numero documento di origine: 243
   - Numero RPAP: 244
   - Codice settore proponente: 270981
-  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/791962)
+  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/791962/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/791962)
-  - [Allegato PDF](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/791962/6b06d9e2a83cfe7ccf8f9351/Del.n.243_Affidamento_servizio_riadattamento_sala_espositiva_allestimento_Motherland.pdf)
+  - [Allegato](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/791962/6b06d9e2a83cfe7ccf8f9351/Del.n.243_Affidamento_servizio_riadattamento_sala_espositiva_allestimento_Motherland.pdf)
 - 2026-11-25 - D.G.R. N. 462 del 28.07.2026 "Accordo Quadro del 2006 sottoscritto fra la Regione Basilicata e i Contitolari della concessione "Gorgoglione" e successivo Addendum del 2020 - Clausola D.1 Ulteriori contributi per la reintegrazione dell'equilibrio ambientale e territoriale - Adempimenti Annualità 2026 - Tavolo Paritetico 2026. Accertamento e Impegno di spesa.
   - Atto: 243/2026
   - ID: 791960
@@ -261,9 +261,9 @@
   - Numero documento di origine: 242
   - Numero RPAP: 243
   - Codice settore proponente: 270981
-  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/791960)
+  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/791960/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/791960)
-  - [Allegato PDF](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/791960/6b06c5b0237a6d59e1b7b869/Del.n.242_A.Q._Addendum_del_2020_reintegrazione.pdf)
+  - [Allegato](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/791960/6b06c5b0237a6d59e1b7b869/Del.n.242_A.Q._Addendum_del_2020_reintegrazione.pdf)
 - 2026-11-25 - Partecipazione APT Basilicata al Roadshow/workshop ENIT, 1-3 dicembre 2026 in Polonia (Cracovia, Poznan, Varsavia) ENIT S.p.A. - Roma (RM)
   - Atto: 242/2026
   - ID: 791906
@@ -285,9 +285,9 @@
   - Numero documento di origine: 241
   - Numero RPAP: 242
   - Codice settore proponente: 270981
-  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/791906)
+  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/791906/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/791906)
-  - [Allegato PDF](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/791906/6b06d4617d9b592327a1d110/Del.n.241.pdf)
+  - [Allegato](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/791906/6b06d4617d9b592327a1d110/Del.n.241.pdf)
 - 2026-11-25 - D.G.R. 423/2025 - "P.A.R.T.I. Basilicata! Piano di Azione per la Ripresa del Turismo in Basilicata" biennio 2025-2026 [Azione 1.1 - fiere, missioni di contatto, eventi e iniziative B2B] Partecipazione APT Basilicata alla fiera ILTM, in programma a Cannes (FRA) dal 30 novembre al 3 dicembre 2026. ENIT S.p.A. - Roma (RM)
   - Atto: 241/2026
   - ID: 791899
@@ -309,9 +309,9 @@
   - Numero documento di origine: 240
   - Numero RPAP: 241
   - Codice settore proponente: 270981
-  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/791899)
+  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/791899/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/791899)
-  - [Allegato PDF](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/791899/6b06bf727d9b592327a1a396/Del.n.240_Partecipazione_APT_fiera_ILTM_a_Cannes.pdf)
+  - [Allegato](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/791899/6b06bf727d9b592327a1a396/Del.n.240_Partecipazione_APT_fiera_ILTM_a_Cannes.pdf)
 - 2026-11-25 - Delibera di Giunta regionale n. 290/26 "POC Basilicata 2014-2020 Asse 5 - Azione 8 Realizzazione mostra "Caravaggio. Narciso. Il mito di un capolavoro". Autorizzazione variazione in aumento entro il quinto d'obbligo ex art. 120, comma 9, del D.Lgs. N. 36/2023 e ss.mm.ii. ed impegno di spesa integrativo per i servizi affidati agli operatori economici Rosa dei venti S.r.l. e Grafiche Paciotti S.r.l. SB
   - Atto: 240/2026
   - ID: 791891
@@ -333,9 +333,9 @@
   - Numero documento di origine: 239
   - Numero RPAP: 240
   - Codice settore proponente: 270981
-  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/791891)
+  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/791891/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/791891)
-  - [Allegato PDF](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/791891/6b06d3daf9d41f07f2eb0c0d/Del.n.239_Quinto_d_obbligo_spesa_integrativa_operatori_economici.pdf)
+  - [Allegato](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/791891/6b06d3daf9d41f07f2eb0c0d/Del.n.239_Quinto_d_obbligo_spesa_integrativa_operatori_economici.pdf)
 - 2026-11-25 - Delibera di Giunta regionale n. 290/26 "POC Basilicata 2014-2020 Asse 5 - Azione 8  Realizzazione mostra "Caravaggio. Narciso. Il mito di un capolavoro" Affidamento servizio di realizzazione e diffusione di prodotti redazionali su mostre ed eventi APT Basilicata. Lucana Editoriale S.r.l.
   - Atto: 239/2026
   - ID: 791823
@@ -357,9 +357,9 @@
   - Numero documento di origine: 238
   - Numero RPAP: 239
   - Codice settore proponente: 270981
-  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/791823)
+  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/791823/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/791823)
-  - [Allegato PDF](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/791823/6b06b3427d9b592327a18f9f/Del.n.238_Affidamento_servizio_realizzazione_prodotti_redazionali.pdf)
+  - [Allegato](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/791823/6b06b3427d9b592327a18f9f/Del.n.238_Affidamento_servizio_realizzazione_prodotti_redazionali.pdf)
 - 2026-11-25 - Delibera di Giunta regionale n. 290/26 "POC Basilicata 2014-2020 Asse 5 - Azione 8  "ROOTS-In Borsa Internazionale del Turismo delle Origini-Matera: 5ª edizione. Anno 2026" Affidamento servizio di stampa e distribuzione della guida digitale "Basilicata. Terra che rigenera". Edizioni Condè Nast S.p.A. - Milano (MI)
   - Atto: 238/2026
   - ID: 791821
@@ -381,9 +381,9 @@
   - Numero documento di origine: 237
   - Numero RPAP: 238
   - Codice settore proponente: 270981
-  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/791821)
+  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/791821/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/791821)
-  - [Allegato PDF](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/791821/6b06b3060d3f8634ee0cdf8f/Del.n.237_Affidamento_servizio_di_stampa_guida_digitale.pdf)
+  - [Allegato](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/791821/6b06b3060d3f8634ee0cdf8f/Del.n.237_Affidamento_servizio_di_stampa_guida_digitale.pdf)
 - 2026-11-23 - C.C.D.I. 2024. Liquidazione della retribuzione di risultato anno 2024 ai titolari di Elevata Qualificazione.
   - Atto: 237/2026
   - ID: 789545
@@ -405,9 +405,9 @@
   - Numero documento di origine: 236
   - Numero RPAP: 237
   - Codice settore proponente: 270981
-  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/789545)
+  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/789545/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/789545)
-  - [Allegato PDF](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/789545/6b03ff04b5116f5f1d21692b/Del.n.236_Liquidazione_retribuzione_anno_2024_Elevata_Qualificazione.pdf)
+  - [Allegato](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/789545/6b03ff04b5116f5f1d21692b/Del.n.236_Liquidazione_retribuzione_anno_2024_Elevata_Qualificazione.pdf)
 - 2026-11-23 - C.C.D.I. 2024. Liquidazione premi correlati alla performance 2024.
   - Atto: 236/2026
   - ID: 789542
@@ -429,9 +429,9 @@
   - Numero documento di origine: 235
   - Numero RPAP: 236
   - Codice settore proponente: 270981
-  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/789542)
+  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/789542/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/789542)
-  - [Allegato PDF](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/789542/6b03fec0a0ccbd378cb42d0c/Del.n.235_Liquidazione_premi_performance_anno_2024.pdf)
+  - [Allegato](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/789542/6b03fec0a0ccbd378cb42d0c/Del.n.235_Liquidazione_premi_performance_anno_2024.pdf)
 - 2026-11-19 - Obiettivi Strategici in Materia di Prevenzione della Corruzione e Trasparenza 2027-2029 in attuazione dell'art. 1 comma 8 della L.190/2012. Definizione
   - Atto: 235/2026
   - ID: 788467
@@ -453,9 +453,9 @@
   - Numero documento di origine: 234
   - Numero RPAP: 235
   - Codice settore proponente: 270981
-  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/788467)
+  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/788467/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/788467)
-  - [Allegato PDF](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/788467/6afeeafccfeafc3efd1c561c/Del.n.234_Obiettivi_strategici_in_materia_di_prevenzione_corruzione_e_trasparenza.pdf)
+  - [Allegato](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/788467/6afeeafccfeafc3efd1c561c/Del.n.234_Obiettivi_strategici_in_materia_di_prevenzione_corruzione_e_trasparenza.pdf)
 - 2026-11-18 - FONDO FOUR SEASONS DGR 925/2023 14ª Liquidazione Contributi Turismo Scolastico, Congressuale, Sportivo e Culturale - anno 2023
   - Atto: 234/2026
   - ID: 787428
@@ -477,6 +477,6 @@
   - Numero documento di origine: 233
   - Numero RPAP: 234
   - Codice settore proponente: 270981
-  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/787428)
+  - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/787428/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/787428)
-  - [Allegato PDF](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/787428/6afd867d566d874d84ec8c0f/Del.n.233_Fondo_Four_Seasons_14__liquidazione_contributi_turismo_scolastico_ecc..pdf)
+  - [Allegato](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/single/6500/787428/6afd867d566d874d84ec8c0f/Del.n.233_Fondo_Four_Seasons_14__liquidazione_contributi_turismo_scolastico_ecc..pdf)
