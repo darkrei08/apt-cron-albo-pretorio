@@ -57,7 +57,7 @@ jobs:
 
       - name: Publish current acts
         run: |
-          if [ "${{ inputs.dry_run }}" = "true" ]; then
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
             python3 apt_cron.py --dry-run > "$RUNNER_TEMP/apt-cron-report/stats.json"
           else
             python3 apt_cron.py > "$RUNNER_TEMP/apt-cron-report/stats.json"
