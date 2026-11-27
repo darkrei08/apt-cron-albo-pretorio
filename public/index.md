@@ -20,6 +20,7 @@
   - Natura atto: 200152
   - Numero documento di origine: 252
   - Numero RPAP: 253
+  - Responsabile: LAURINO ROBERTA
   - Codice settore proponente: 270981
   - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/793331/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/793331)
@@ -44,6 +45,7 @@
   - Natura atto: 200152
   - Numero documento di origine: 251
   - Numero RPAP: 252
+  - Responsabile: MANCANIELLO ROSA
   - Codice settore proponente: 270981
   - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/793329/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/793329)
@@ -68,6 +70,7 @@
   - Natura atto: 200152
   - Numero documento di origine: 250
   - Numero RPAP: 251
+  - Responsabile: MANCANIELLO ROSA
   - Codice settore proponente: 270981
   - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/793327/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/793327)
@@ -92,6 +95,7 @@
   - Natura atto: 200152
   - Numero documento di origine: 249
   - Numero RPAP: 250
+  - Responsabile: LOTITO MARIA TERESA
   - Codice settore proponente: 270981
   - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/793325/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/793325)
@@ -116,6 +120,7 @@
   - Natura atto: 200152
   - Numero documento di origine: 248
   - Numero RPAP: 249
+  - Responsabile: LAURINO ROBERTA
   - Codice settore proponente: 270981
   - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/793323/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/793323)
@@ -140,6 +145,7 @@
   - Natura atto: 200152
   - Numero documento di origine: 247
   - Numero RPAP: 248
+  - Responsabile: LAURINO ROBERTA
   - Codice settore proponente: 270981
   - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/793321/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/793321)
@@ -164,6 +170,7 @@
   - Natura atto: 200152
   - Numero documento di origine: 246
   - Numero RPAP: 247
+  - Responsabile: LAURINO ROBERTA
   - Codice settore proponente: 270981
   - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/793319/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/793319)
@@ -188,6 +195,7 @@
   - Natura atto: 200152
   - Numero documento di origine: 245
   - Numero RPAP: 246
+  - Responsabile: LAURINO ROBERTA
   - Codice settore proponente: 270981
   - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/793315/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/793315)
@@ -212,6 +220,7 @@
   - Natura atto: 200152
   - Numero documento di origine: 244
   - Numero RPAP: 245
+  - Responsabile: LAURINO ROBERTA
   - Codice settore proponente: 270981
   - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/793313/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/793313)
@@ -236,6 +245,7 @@
   - Natura atto: 200152
   - Numero documento di origine: 243
   - Numero RPAP: 244
+  - Responsabile: MANCANIELLO ROSA
   - Codice settore proponente: 270981
   - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/791962/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/791962)
@@ -260,6 +270,7 @@
   - Natura atto: 200152
   - Numero documento di origine: 242
   - Numero RPAP: 243
+  - Responsabile: MANCANIELLO ROSA
   - Codice settore proponente: 270981
   - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/791960/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/791960)
@@ -284,6 +295,7 @@
   - Natura atto: 200152
   - Numero documento di origine: 241
   - Numero RPAP: 242
+  - Responsabile: BRUNI STEFANIA
   - Codice settore proponente: 270981
   - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/791906/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/791906)
@@ -308,6 +320,7 @@
   - Natura atto: 200152
   - Numero documento di origine: 240
   - Numero RPAP: 241
+  - Responsabile: BRUNI STEFANIA
   - Codice settore proponente: 270981
   - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/791899/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/791899)
@@ -332,6 +345,7 @@
   - Natura atto: 200152
   - Numero documento di origine: 239
   - Numero RPAP: 240
+  - Responsabile: BRUNI STEFANIA
   - Codice settore proponente: 270981
   - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/791891/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/791891)
@@ -356,6 +370,7 @@
   - Natura atto: 200152
   - Numero documento di origine: 238
   - Numero RPAP: 239
+  - Responsabile: LOTITO MARIA TERESA
   - Codice settore proponente: 270981
   - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/791823/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/791823)
@@ -380,6 +395,7 @@
   - Natura atto: 200152
   - Numero documento di origine: 237
   - Numero RPAP: 238
+  - Responsabile: LOTITO MARIA TERESA
   - Codice settore proponente: 270981
   - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/791821/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/791821)
@@ -404,6 +420,7 @@
   - Natura atto: 200152
   - Numero documento di origine: 236
   - Numero RPAP: 237
+  - Responsabile: SARLI MARGHERITA
   - Codice settore proponente: 270981
   - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/789545/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/789545)
@@ -428,6 +445,7 @@
   - Natura atto: 200152
   - Numero documento di origine: 235
   - Numero RPAP: 236
+  - Responsabile: SARLI MARGHERITA
   - Codice settore proponente: 270981
   - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/789542/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/789542)
@@ -452,6 +470,7 @@
   - Natura atto: 200152
   - Numero documento di origine: 234
   - Numero RPAP: 235
+  - Responsabile: SARLI MARGHERITA
   - Codice settore proponente: 270981
   - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/788467/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/788467)
@@ -476,6 +495,7 @@
   - Natura atto: 200152
   - Numero documento di origine: 233
   - Numero RPAP: 234
+  - Responsabile: BRUNI STEFANIA
   - Codice settore proponente: 270981
   - [Atto ufficiale](https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/787428/dettaglio-pap)
   - [PDF ufficiale](https://siopi.publisys.it/katti-aptbasilicata/public/pap/edoc/download/unico/6500/787428)
