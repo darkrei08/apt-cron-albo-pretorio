@@ -1,0 +1,83 @@
+name: Check and release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to validate, for example v1.0.0
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  quality:
+    uses: ./.github/workflows/quality.yml
+
+  release:
+    needs: quality
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.tag != '')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out release ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - name: Validate release gate
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import pathlib
+          import re
+          import sys
+
+          version = pathlib.Path("VERSION").read_text(encoding="utf-8").strip()
+          gate = json.loads(pathlib.Path("docs/validation/release-gate.json").read_text(encoding="utf-8"))
+          tag = os.environ["RELEASE_TAG"]
+          reasons = []
+          if not re.fullmatch(r"\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?", version):
+              reasons.append(f"invalid version: {version}")
+          if gate.get("version") != version:
+              reasons.append("gate version does not match VERSION")
+          if gate.get("go") is not True:
+              reasons.append("release gate is not GO")
+          for part in ("1", "2", "3", "4", "5"):
+              if gate.get("parts", {}).get(part) != "PASS":
+                  reasons.append(f"part {part} is {gate.get('parts', {}).get(part)}")
+          if version not in ("[INSERT VERSIONE]", "") and tag != f"v{version}":
+              reasons.append(f"tag {tag} does not match v{version}")
+          if reasons:
+              for reason in reasons:
+                  print(f"error: {reason}", file=sys.stderr)
+              raise SystemExit(1)
+          PY
+
+      - name: Verify tag points to checkout
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+        run: test "$(git rev-parse "$RELEASE_TAG^{commit}")" = "$(git rev-parse HEAD)"
+
+      - name: Create or reuse GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "release already exists: $RELEASE_TAG"
+          else
+            gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" --generate-notes --verify-tag
+          fi

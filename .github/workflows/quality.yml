@@ -1,0 +1,66 @@
+name: Quality
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile sources and tests
+        run: |
+          for file in apt_cron.py portal_monitor.py tests/test_apt_cron.py tests/test_portal_monitor.py; do
+            if [ -f "$file" ]; then
+              python3 -m py_compile "$file"
+            fi
+          done
+
+      - name: Run full test suite
+        run: python3 -m unittest discover -s tests -v
+
+      - name: Report release gate
+        run: |
+          python3 - <<'PY'
+          import json
+          import pathlib
+          import re
+
+          version = pathlib.Path("VERSION").read_text(encoding="utf-8").strip()
+          gate = json.loads(pathlib.Path("docs/validation/release-gate.json").read_text(encoding="utf-8"))
+          reasons = []
+          if not re.fullmatch(r"\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?", version):
+              reasons.append(f"invalid version: {version}")
+          if gate.get("version") != version:
+              reasons.append("gate version does not match VERSION")
+          if gate.get("go") is not True:
+              reasons.append("release gate is not GO")
+          for part in ("1", "2", "3", "4", "5"):
+              if gate.get("parts", {}).get(part) != "PASS":
+                  reasons.append(f"part {part} is {gate.get('parts', {}).get(part)}")
+          print(json.dumps({
+              "go": gate.get("go"),
+              "reasons": reasons,
+              "release_ready": not reasons,
+              "status": gate.get("status"),
+              "version": version,
+          }, sort_keys=True))
+          PY
