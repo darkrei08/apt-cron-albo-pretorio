@@ -3,7 +3,7 @@
 - Keep changes narrowly scoped to the requested behavior.
 - Preserve unrelated user changes and local configuration.
 - Prefer standard-library APIs and existing dependencies.
-- Keep code, comments, tests, and repository documentation in English. Exception: `odd/tasks/*.md` quotes the operator's original request and specs verbatim, including non-English text; those quotations are evidence and are never translated.
+- Keep code, comments, tests, ADRs, and technical documentation in English. User-facing README and wiki pages may use another language when the operator explicitly requests it; record that decision in the wayfinder map. `odd/tasks/*.md` quotes the operator's original request and specs verbatim, including non-English text; those quotations are evidence and are never translated.
 - Verify behavior through the public interface with simulated HTTP in tests.
 - Never log credentials or commit runtime state. Generated `public/index.*` files are publication artifacts committed by the hourly workflow by operator decision; they are not runtime state.
 - Run the relevant focused tests and the full suite when the runner is available; report unverified checks honestly.

@@ -67,3 +67,15 @@ _Avoid_: cleanup, pruning, archive
 **Release gate**:
 The set of decisions, checks and evidence that must be satisfied before a production rollout.
 _Avoid_: checklist, deployment, sign-off
+
+**Portal snapshot**:
+The normalized view of the current Source register response used to detect availability and structural change: response keys, notice keys, page count, result count, Notice identity, Notice fingerprint and official links.
+_Avoid_: scrape, page dump, cache
+
+**Change event**:
+A recorded difference between two Portal snapshots, or a reachability or download failure, written to the JSON history file.
+_Avoid_: alert, log line, notification
+
+**Alert channel**:
+The dedicated Telegram chat that receives portal monitor warnings, distinct from the Destination channel.
+_Avoid_: destination channel, validation channel, group
