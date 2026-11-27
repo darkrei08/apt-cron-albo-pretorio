@@ -43,14 +43,12 @@ jobs:
             exit 1
           fi
 
-      - name: Restore publication state
-        uses: actions/cache@v4
-        with:
-          path: ${{ runner.temp }}/apt-cron-state
-          key: apt-cron-state-${{ github.ref_name }}-${{ github.run_id }}
-          restore-keys: |
-            apt-cron-state-${{ github.ref_name }}-
-            apt-cron-state-
+      - name: Seed publication state from committed index
+        run: |
+          mkdir -p "$RUNNER_TEMP/apt-cron-state"
+          python3 publication_state.py \
+            --index public/index.json \
+            --state "$RUNNER_TEMP/apt-cron-state/notices.json"
 
       - name: Copy previous index
         run: |
