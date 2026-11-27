@@ -1,22 +1,32 @@
-name: Update public index
+name: Publish acts and reports
 
 on:
   schedule:
     - cron: '0 * * * *'
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Run without publishing to Telegram
+        type: boolean
+        default: false
 
 permissions:
   contents: write
 
 concurrency:
-  group: update-index
+  group: publish-acts
   cancel-in-progress: false
 
 jobs:
-  update-index:
+  publish:
     runs-on: ubuntu-latest
     env:
       TZ: Europe/Rome
+      APT_TELEGRAM_PROFILE: test
+      APT_TEST_TELEGRAM_BOT_TOKEN: ${{ secrets.APT_TEST_TELEGRAM_BOT_TOKEN }}
+      APT_TEST_TELEGRAM_CHAT_ID: ${{ secrets.APT_TEST_TELEGRAM_CHAT_ID }}
+      APT_STATE_PATH: ${{ runner.temp }}/apt-cron-state/notices.json
+      APT_INDEX_DIR: public
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -24,19 +34,63 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
-      - name: Refresh generated index
-        run: python3 apt_cron.py --refresh-index
-
-      - name: Commit changed index files
+      - name: Check publication credentials
         run: |
-          if [ -z "$(git status --porcelain -- public/index.json public/index.md public/index.html)" ]; then
-            echo "index unchanged"
-            exit 0
+          if [ -z "$APT_TEST_TELEGRAM_BOT_TOKEN" ] || [ -z "$APT_TEST_TELEGRAM_CHAT_ID" ]; then
+            echo "::error::Missing APT_TEST_TELEGRAM_BOT_TOKEN or APT_TEST_TELEGRAM_CHAT_ID repository secret"
+            exit 1
           fi
+
+      - name: Restore publication state
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/apt-cron-state
+          key: apt-cron-state-${{ github.ref_name }}-${{ github.run_id }}
+          restore-keys: |
+            apt-cron-state-${{ github.ref_name }}-
+            apt-cron-state-
+
+      - name: Copy previous index
+        run: |
+          mkdir -p "$RUNNER_TEMP/apt-cron-report"
+          cp public/index.json "$RUNNER_TEMP/apt-cron-report/index-before.json"
+
+      - name: Publish current acts
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            python3 apt_cron.py --dry-run > "$RUNNER_TEMP/apt-cron-report/stats.json"
+          else
+            python3 apt_cron.py > "$RUNNER_TEMP/apt-cron-report/stats.json"
+          fi
+
+      - name: Build hourly and daily reports
+        run: |
+          day=$(date +%F)
+          hour=$(date +%H%M)
+          mkdir -p "reports/hourly/$day" "reports/daily"
+          python3 hourly_report.py \
+            --before "$RUNNER_TEMP/apt-cron-report/index-before.json" \
+            --after public/index.json \
+            --stats "$RUNNER_TEMP/apt-cron-report/stats.json" \
+            --stats-for public/index.json \
+            --stdout > "reports/hourly/$day/$hour.md"
+          python3 daily_report.py \
+            --date "$day" \
+            --input-dir "reports/hourly/$day" \
+            --output "reports/daily/$day.md"
+          cp "reports/hourly/$day/$hour.md" reports/latest.md
+          cat reports/latest.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit reports and index
+        run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A -- public/index.json public/index.md public/index.html
-          git commit -m "chore(index): refresh public notices index"
+          git add -A -- reports public/index.json public/index.md public/index.html
+          if git diff --cached --quiet; then
+            echo "reports and index unchanged"
+            exit 0
+          fi
+          git commit -m "chore(reports): publish hourly acts and reports"
           git push

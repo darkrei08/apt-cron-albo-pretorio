@@ -75,8 +75,9 @@ MAILTO=operator@example.invalid
 ```
 
 Replace the placeholder mailbox and host paths before installation. `CRON_TZ` is a crontab variable
-line, while `TZ` is part of the command environment. The existing GitHub Actions index workflow
-remains separate and needs only its repository permissions, not Telegram credentials.
+line, while `TZ` is part of the command environment. The separate `Publish acts and reports` GitHub
+Actions workflow uses the `APT_TEST_TELEGRAM_*` repository secrets with the `test` profile; it is not
+the production host job and does not change the release gate.
 
 ## Monitor and observe
 
@@ -87,6 +88,24 @@ one interval is an incident. The crontab intentionally leaves stdout/stderr unre
 `MAILTO` receives the redacted failure line; if persistent logs are required, add an external logging
 handler that preserves the non-zero exit status. GitHub Actions notifications cover the index workflow.
 Ticket 31 must name the actual observer and alert destination.
+
+The hourly GitHub workflow writes a human-readable report to the Actions job summary. Open the latest
+`Publish acts and reports` run and read the `Build hourly and daily reports` step. The report shows the
+check time in `Europe/Rome`, the outcome, and counts for acts in the current window, published acts,
+new, changed, removed and unchanged. `no_changes` means no act was added, modified or withdrawn in the
+current publication window.
+
+For a local check with no credentials and no repository write:
+
+```sh
+cp public/index.json /tmp/index-before.json
+python3 apt_cron.py --refresh-index --index-dir /tmp/cron-index-check
+python3 hourly_report.py --before /tmp/index-before.json --after /tmp/cron-index-check/index.json --stdout
+```
+
+For the publication state, run `python3 apt_cron.py --dry-run` and feed its JSON to
+`python3 hourly_report.py --stats <stats.json> --stdout`. `published: 0` means no new or changed act
+would be sent to the destination channel.
 
 ## Rollback
 

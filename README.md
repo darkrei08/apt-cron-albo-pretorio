@@ -4,7 +4,7 @@ Publishes new and changed notices from the official APT Basilicata public notice
 
 The repository owns two publication surfaces: the Telegram destination and the committed `public/index.*` files. It does not archive official documents, delete channel messages, or send anything unless a publication command is run.
 
-The Wayfinder map is [APT public notices crawler and notification plan](https://github.com/darkrei08/apt-cron-albo-pretorio/issues/1). It records the operator decisions and the linked ticket graph. The current dependency order is in [docs/wayfinder-execution-order.md](docs/wayfinder-execution-order.md). Decision records are in [docs/adr/](docs/adr/), and the live Telegram validation checklist is in [docs/validation/telegram-private-channel.md](docs/validation/telegram-private-channel.md). The operator-only protected-host checklist is in [docs/operations/operator-handoff.md](docs/operations/operator-handoff.md).
+GitHub CI/CD and publication instructions are in [docs/ci-cd.md](docs/ci-cd.md). The Wayfinder map is [APT public notices crawler and notification plan](https://github.com/darkrei08/apt-cron-albo-pretorio/issues/1). It records the operator decisions and the linked ticket graph. The current dependency order is in [docs/wayfinder-execution-order.md](docs/wayfinder-execution-order.md). Decision records are in [docs/adr/](docs/adr/), and the live Telegram validation checklist is in [docs/validation/telegram-private-channel.md](docs/validation/telegram-private-channel.md). The operator-only protected-host checklist is in [docs/operations/operator-handoff.md](docs/operations/operator-handoff.md).
 
 ## How it works
 
@@ -199,10 +199,24 @@ explicit, and set `MAILTO` so cron mails the redacted failure output to the main
 cron output to `cron.log` if `MAILTO` is the alert path; add a separate logging handler when persistent
 logs are required. A test profile must never be installed in the hourly cron entry.
 
-The committed index is refreshed by `.github/workflows/update-index.yml` every hour and on manual
-dispatch. The workflow needs no Telegram credentials: it runs `apt_cron.py --refresh-index` and
-commits only changed `public/index.json`, `public/index.md` and `public/index.html` with the
-repository `GITHUB_TOKEN`.
+The hourly `.github/workflows/update-index.yml` workflow publishes new or changed acts and refreshes
+the generated index. It uses the `APT_TEST_TELEGRAM_*` repository secrets with the `test` profile. Each
+run seeds its state from the committed `public/index.json`, calls `apt_cron.py`, writes an hourly Markdown
+report and a daily Markdown report, and commits generated `public/index.*` and `reports/**/*.md` files
+with the repository `GITHUB_TOKEN`. The job summary shows the check time in `Europe/Rome`, the outcome
+and the same counts as the report.
+
+To check whether a local dry run would send anything, convert its JSON output to a readable report:
+
+```sh
+APT_ENV_FILE=/etc/apt-cron/test-credentials.conf APT_TELEGRAM_PROFILE=test \
+  APT_STATE_PATH=/tmp/apt-cron-state/notices.json python3 apt_cron.py --dry-run > /tmp/apt-cron-stats.json
+python3 hourly_report.py --stats /tmp/apt-cron-stats.json --stdout
+```
+
+`published: 0` means no new or changed act would be published. Open the latest `Publish acts and reports`
+workflow run in GitHub Actions and read the `Build hourly and daily reports` step summary for the
+scheduled result.
 
 ## Download section
 
