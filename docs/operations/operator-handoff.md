@@ -170,7 +170,11 @@ git -C /opt/apt-cron-pretorio log --oneline -5
 A failed workflow or unexpected publication count is an incident. Disable the workflow and follow
 the rollback step; no host cron is active.
 
-Record: observer name, alert address, 24-hour window, table of hourly results and incident decision.
+Observer: `darkrei08`
+Alert destination: GitHub Actions job notifications
+Incident trigger: a failed workflow or unexpected publication count
+
+Record: 24-hour window, table of hourly results and incident decision.
 
 ## 9. Rollback rehearsal
 

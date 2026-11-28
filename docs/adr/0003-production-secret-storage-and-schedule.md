@@ -1,7 +1,8 @@
 # 0003 — Production secret storage and schedule ownership
 
 - Status: accepted
-- Superseded by: [ADR 0014](0014-production-credential-override-and-destination-channel.md) for GitHub Actions credential names and Destination-channel classification; the protected host file and production-profile names remain in force.
+- Superseded by [ADR 0014](0014-production-credential-override-and-destination-channel.md) for GitHub Actions credential names and Destination-channel classification; the protected host file and production-profile names remain in force.
+- Superseded by [ADR 0015](0015-actions-sole-publisher.md) for scheduling: GitHub Actions is the sole publisher and the host cron is inactive.
 - Decision record: GitHub issue #9 (closed)
 
 ## Context
@@ -68,8 +69,10 @@ Operator decisions are recorded below.
   is sufficient; no code change is implied by this ADR.
 - A failure after the message is sent but before all documents no longer strands a notice: state
   stores the sent-message fingerprint separately from the notice fingerprint. The notice fingerprint
-  is committed only after every PDF succeeds, so an unchanged next run retries only the missing
-  `sent_documents` URLs and sends no second text message. A legacy state seeds the sent-message
+  is committed only after every PDF succeeds, so when the same state file is retained an unchanged
+  next run retries only the missing `sent_documents` URLs and sends no second text message. Across
+  scheduled Actions runs the state is reseeded from the committed index, so a publish before that
+  index commit remains an operator recovery case. A legacy state seeds the sent-message
   fingerprint only for notices whose document was already uploaded, so migration neither duplicates
   text messages nor uploads documents for acts that were only seeded.
 - Recording a secret store here does not authorize any commit of credentials: `state/` and

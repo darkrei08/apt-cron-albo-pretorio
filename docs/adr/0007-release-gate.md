@@ -2,6 +2,7 @@
 
 - Status: HOLD; parts 1-2 PASS, parts 3-5 blocked by missing rotated production-classified credentials and unexecuted operator evidence
 - Credential names: [ADR 0014](0014-production-credential-override-and-destination-channel.md) supersedes the separated names below for GitHub Actions; rotation remains mandatory
+- Superseded by [ADR 0015](0015-actions-sole-publisher.md) for scheduling and state ownership: GitHub Actions is the sole publisher and runtime state is never committed.
 - Decision record: GitHub issue #13 (closed after issues #9, #10, #11 and #12)
 
 ## Context
@@ -56,27 +57,28 @@ is not a release.
    disposition with a named owner is allowed only for an item that genuinely cannot apply, such as
    the non-PDF attachment check when no such attachment exists.
 4. **Operational readiness confirmed.** The secret store, host timezone, schedule, failure alert and
-   overlap protection chosen in ADR 0003 are installed on the named host, and one manual production
-   run has been observed completing with exit code 0 and a state file written.
+   overlap protection chosen in ADR 0003 are installed on the named host for explicitly authorized
+   manual runs, the `publish-acts` concurrency lock is active, and one manual production run has been
+   observed completing with exit code 0 and a state file written. No host cron is active.
 5. **Rollback rehearsed.** No message deletion is rehearsed, because ADR 0004 keeps messages as the
-   permanent record. The rollback owner demonstrates stopping the cron entry and the hourly index
-   workflow, confirms that current `public/index.*` can be reverted by a commit, and confirms that
+   permanent record. The rollback owner demonstrates disabling the `update-index.yml` workflow,
+   confirms that current `public/index.*` can be reverted by a reviewed commit, and confirms that
    earlier Git history and channel messages remain.
 
 Open operator inputs:
 
 - **faibtes target.** Accepted: `faibtes` means the portable production deployment — the host that
   cloned or installed this repository, running Python 3.11 or newer with writable state and index
-  directories, scheduled by the cron entry recorded in ADR 0003. There is no single named host, so a
-  gate check names the host actually in use at release time.
+  directories for explicit manual runs. Scheduling belongs solely to the `update-index.yml` workflow
+  under ADR 0015. A gate check names the host actually used for manual work.
 - **Sign-off owner.** Accepted: the repository operator records the five PASS lines in the ticket,
   with the evidence links or commands used for each.
 - **Rollback owner.** Accepted: the repository operator also owns rollback; no second person is
   available, so the same person stops the schedule and records the action.
-- **Rollback action.** Accepted: remove or disable the cron entry and disable the `update-index`
-  workflow, then stop publishing. Published Telegram messages are not deleted (ADR 0004 item 1) and
-  earlier committed `public/index.*` snapshots stay in Git history; only current index files can be
-  reverted by a commit. Re-enabling the cron entry resumes publishing; `state/` is not restored.
+- **Rollback action.** Accepted: disable the `update-index` workflow, then stop publishing. Published
+  Telegram messages are not deleted (ADR 0004 item 1) and earlier committed `public/index.*` snapshots
+  stay in Git history; only current index files can be reverted by a reviewed commit. Re-enabling the
+  workflow resumes publishing after a new GO; runner-local state is not restored.
 - **Whether a pilot period is a gate part.** Accepted: no separate pilot. One manual production run
   is part of part 4 and the first 24 hours of hourly runs are post-release observation, not a sixth
   gate.
@@ -120,4 +122,4 @@ Open operator inputs:
 ## Not verified
 
 The release commit `979a03d756673da9ba38e4605e5062d0a8d74da9` has a successful CI run
-([45904384468](https://github.com/darkrei08/apt-cron-albo-pretorio/actions/runs/45904384468)) and is installed at `/opt/apt-cron-pretorio` on host `herdr`. Parts 1 and 2 are PASS. Parts 3-5 remain BLOCKED: rotated production-classified credentials are absent from the protected environment files, so no real HTML validation, publication, manual production run, cron activation, 24-hour observation or rollback rehearsal has occurred. ADR 0014 classifies the GitHub Actions `APT_TEST_TELEGRAM_*` values as Destination-channel production credentials while the host cron keeps the ADR 0003 production-profile names. The archive dry run found 748 notices with 725 attachment errors and sent nothing. No GO is claimed; see `docs/validation/production-rollout-2026-11-26.md`.
+([45904384468](https://github.com/darkrei08/apt-cron-albo-pretorio/actions/runs/45904384468)) and is installed at `/opt/apt-cron-pretorio` on host `herdr`. Parts 1 and 2 are PASS. Parts 3-5 remain BLOCKED: rotated production-classified credentials are absent from the protected environment files, so no real HTML validation, publication, manual production run or rollback rehearsal has occurred. The first 24 hours of `update-index.yml` operation are post-release observation, not a sixth gate part. ADR 0014 classifies the GitHub Actions `APT_TEST_TELEGRAM_*` values as Destination-channel production credentials while the host cron keeps the ADR 0003 production-profile names. The archive dry run found 748 notices with 725 attachment errors and sent nothing. No GO is claimed; see `docs/validation/production-rollout-2026-11-26.md`.

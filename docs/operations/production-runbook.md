@@ -79,9 +79,13 @@ it; otherwise the next scheduled run can repeat the publication.
 ## Monitor and observe
 
 For the first 24 hours, the operator records each hourly Actions run's status, outcome, source notice
-count, Telegram publication count and index commit. A failed workflow or unexpected publication count
-is an incident. GitHub Actions notifications cover the workflow; no host cron is active. Ticket 31
-must name the actual observer and alert destination.
+count, Telegram publication count and index commit. No host cron is active.
+
+Observer: `darkrei08`.
+Alert destination: GitHub Actions job notifications.
+Incident trigger: a failed workflow or unexpected publication count.
+Rollback trigger: the same incident; disable `update-index.yml`, preserve logs and report artifacts,
+do not delete Telegram messages and revert only `public/index.*` through a reviewed commit or PR.
 
 The hourly GitHub workflow writes a human-readable report to the Actions job summary. Open the latest
 `Publish acts and reports` run and read the `Build hourly and daily reports` step. The report shows the
@@ -116,13 +120,12 @@ would be sent to the destination channel.
 
 - Ticket 26: name the host, index destination and operational owner.
 - Ticket 28: rotate the `APT_TEST_TELEGRAM_*` Actions secrets, record protected manual-run path metadata and link redacted evidence.
-- Ticket 29: execute and evidence the install, seed, manual run, activation and rollback steps above.
+- Ticket 29: accept the Actions-only install, seed, manual-run, rollback and interrupted-first-run sequence above; the host cron stays inactive.
 - Ticket 30: rerun the current private-channel checklist and one manual production run.
-- Ticket 31: name the observer, alert destinations and rollback trigger.
-- Ticket 32: record the final go/no-go decision against ADR 0007. This runbook is preparation, not
-  production approval.
+- Ticket 31: observer `darkrei08`, alert destination GitHub Actions job notifications, incident and rollback triggers recorded above.
+- Ticket 32: test-phase decision NO-GO, gate HOLD; live GO remains blocked by post-test operator evidence. This runbook is preparation, not production approval.
 
 The separate operator checklist in [operator-handoff.md](operator-handoff.md) lists the exact commands
 and evidence records for installation, credential rotation, seed, private validation, real backfill,
-manual run, cron activation, 24-hour monitoring and rollback rehearsal. It contains no credentials
-and does not record a GO.
+manual run, Actions-only activation, 24-hour monitoring and rollback rehearsal. It contains no
+credentials and does not record a GO.
