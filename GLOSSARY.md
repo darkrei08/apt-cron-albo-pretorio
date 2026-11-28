@@ -67,3 +67,15 @@ _Avoid_: cleanup, pruning, archive
 **Release gate**:
 The set of decisions, checks and evidence that must be satisfied before a production rollout.
 _Avoid_: checklist, deployment, sign-off
+
+**CLI contract**:
+The stable machine-readable stdout, stderr and exit-code behavior that automation consumers use to interpret a command.
+_Avoid_: wrapper, generated CLI, help text
+
+**Automation host**:
+The local system that schedules checks, reads repository files and raises alarms without publishing acts.
+_Avoid_: publisher, destination, schedule owner
+
+**Tooling aid**:
+An external tool used for discovery or measurement but never required by the runtime.
+_Avoid_: runtime dependency, service, deployment target

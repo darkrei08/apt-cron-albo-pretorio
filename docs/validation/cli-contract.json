@@ -1,0 +1,65 @@
+{
+  "name": "cron-albo-pretorio",
+  "contract_version": "1",
+  "version_source": "VERSION",
+  "runtime": "python3-stdlib",
+  "runtime_tools": [],
+  "contract": "docs/cli-contract.md",
+  "exit_codes": {
+    "0": "completed",
+    "1": "runtime failure with redacted stderr",
+    "2": "invalid arguments, unknown Telegram profile or invalid APT_PAGE_SIZE"
+  },
+  "optional_count_fields": ["attachment_errors", "document_errors"],
+  "entry_points": [
+    {
+      "id": "apt_cron_dry_run",
+      "module": "apt_cron.py",
+      "command": ["python3", "apt_cron.py", "--dry-run"],
+      "stdout": "json",
+      "required_success_keys": ["notices", "published", "dry_run"]
+    },
+    {
+      "id": "apt_cron_refresh_index",
+      "module": "apt_cron.py",
+      "command": ["python3", "apt_cron.py", "--refresh-index"],
+      "stdout": "json",
+      "required_success_keys": ["notices"]
+    },
+    {
+      "id": "apt_cron_backfill_dry_run",
+      "module": "apt_cron.py",
+      "command": ["python3", "apt_cron.py", "--backfill", "--dry-run"],
+      "stdout": "json",
+      "required_success_keys": ["notices", "published", "dry_run"]
+    },
+    {
+      "id": "apt_cron_backfill",
+      "module": "apt_cron.py",
+      "command": ["python3", "apt_cron.py", "--backfill"],
+      "stdout": "json",
+      "required_success_keys": ["notices", "published", "dry_run"]
+    },
+    {
+      "id": "apt_cron_publish",
+      "module": "apt_cron.py",
+      "command": ["python3", "apt_cron.py"],
+      "stdout": "json",
+      "required_success_keys": ["notices", "published", "dry_run"]
+    },
+    {
+      "id": "hourly_report_stdout",
+      "module": "hourly_report.py",
+      "command": ["python3", "hourly_report.py", "--stats", "FILE", "--stdout"],
+      "stdout": "markdown",
+      "required_success_keys": []
+    },
+    {
+      "id": "daily_report_file",
+      "module": "daily_report.py",
+      "command": ["python3", "daily_report.py", "--date", "D", "--input-dir", "DIR", "--output", "FILE"],
+      "stdout": "none",
+      "required_success_keys": []
+    }
+  ]
+}
