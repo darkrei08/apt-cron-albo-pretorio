@@ -1,6 +1,6 @@
 # GitHub CI/CD
 
-This repository publishes only through GitHub. There is no npm package, no PyPI package and no container registry publication. No repository secret is used by these workflows.
+This repository publishes only through GitHub. There is no npm package, no PyPI package and no container registry publication. The hourly publication workflow uses the two protected test Telegram repository secrets; the other workflows do not use repository secrets. No npm, PyPI or container registry credential is used.
 
 ## Workflows
 
@@ -9,7 +9,7 @@ This repository publishes only through GitHub. There is no npm package, no PyPI 
 | [Quality](../.github/workflows/quality.yml) | pushes to `main`, pull requests, manual dispatch, reusable call | Compiles sources and tests, runs the full suite, reads `VERSION` and reports the release gate. |
 | [Check and release](../.github/workflows/release.yml) | pushes to `main`, tags `v*`, manual dispatch with an existing tag | Calls Quality, validates version and gate, verifies the tag commit, then creates or reuses a GitHub Release. |
 | [Publish public index](../.github/workflows/pages.yml) | changes to `public/index.*` on `main`, manual dispatch | Deploys `public/` to GitHub Pages with `GITHUB_TOKEN` permissions only. |
-| [Update public index](../.github/workflows/update-index.yml) | hourly schedule, manual dispatch | Runs `apt_cron.py --refresh-index` and commits changed index files. |
+| [Publish acts and reports](../.github/workflows/update-index.yml) | hourly schedule, manual dispatch with optional dry run | Publishes new or changed acts, regenerates the index, writes hourly and daily Markdown reports, then commits generated files. |
 
 ## Version contract
 
