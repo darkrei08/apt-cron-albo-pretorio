@@ -38,9 +38,12 @@ worktree status. A different commit does not satisfy the gate.
 
 The script supports a protected environment file through `APT_ENV_FILE`. The operator writes the
 rotated `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` out of band and never prints or commits them.
-Keep `APT_TELEGRAM_PROFILE=production` explicit. Private-channel tests use a separate gitignored
-env file with `APT_TELEGRAM_PROFILE=test` and the `APT_TEST_TELEGRAM_*` names; those values must
-never be installed in the hourly job.
+Keep `APT_TELEGRAM_PROFILE=production` explicit. Isolated checks use a separate gitignored env file
+with `APT_TELEGRAM_PROFILE=test` and the `APT_TEST_TELEGRAM_*` names; those values must never be
+installed in the hourly host job. Under
+[ADR 0014](../adr/0014-production-credential-override-and-destination-channel.md), GitHub Actions
+uses the same legacy names as production-classified Destination credentials, while the host cron keeps
+the production-profile names.
 
 ```sh
 sudo touch /etc/apt-cron/albo.env
@@ -74,10 +77,12 @@ validation. Do not reuse production state for that check.
 
 ## 4. Private Telegram HTML validation
 
-Follow `docs/validation/telegram-private-channel.md` on the current release candidate and update
-that record with PASS, FAIL or NOT RUN results for V2, V3, V4, V5 and V8. The local synthetic tests
-in `tests/test_apt_cron.py` cover payload construction and escaping only; they do not replace a live
-private-channel observation.
+Follow `docs/validation/telegram-private-channel.md` on the current release candidate only under
+explicit operator authorization for a Destination-channel send; [ADR 0014](../adr/0014-production-credential-override-and-destination-channel.md)
+classifies that chat as production and does not authorize publication. Use isolated state and index
+paths. Update that record with PASS, FAIL or NOT RUN results for V2, V3, V4, V5 and V8. The local
+synthetic tests in `tests/test_apt_cron.py` cover payload construction and escaping only; they do not
+replace a live observation.
 
 Record: evidence links or message IDs in the private channel, exact commit, and named owner of any
 accepted non-applicable item.

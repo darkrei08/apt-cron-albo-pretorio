@@ -4,7 +4,7 @@ Publishes new and changed notices from the official APT Basilicata public notice
 
 The repository owns two publication surfaces: the Telegram destination and the committed `public/index.*` files. It does not archive official documents, delete channel messages, or send anything unless a publication command is run.
 
-GitHub CI/CD and publication instructions are in [docs/ci-cd.md](docs/ci-cd.md). The machine-readable CLI contract is in [docs/cli-contract.md](docs/cli-contract.md) and [docs/validation/cli-contract.json](docs/validation/cli-contract.json). Source-backed evidence for the external tooling decision is in [docs/validation/external-tooling-evidence.md](docs/validation/external-tooling-evidence.md). Local n8n automation is described in [docs/automation/n8n.md](docs/automation/n8n.md). The Wayfinder map is [APT public notices crawler and notification plan](https://github.com/darkrei08/apt-cron-albo-pretorio/issues/1). It records the operator decisions and the linked ticket graph. The current dependency order is in [docs/wayfinder-execution-order.md](docs/wayfinder-execution-order.md). Decision records are in [docs/adr/](docs/adr/), and the live Telegram validation checklist is in [docs/validation/telegram-private-channel.md](docs/validation/telegram-private-channel.md). The operator-only protected-host checklist is in [docs/operations/operator-handoff.md](docs/operations/operator-handoff.md).
+GitHub CI/CD and publication instructions are in [docs/ci-cd.md](docs/ci-cd.md). The machine-readable CLI contract is in [docs/cli-contract.md](docs/cli-contract.md) and [docs/validation/cli-contract.json](docs/validation/cli-contract.json). Source-backed evidence for the external tooling decision is in [docs/validation/external-tooling-evidence.md](docs/validation/external-tooling-evidence.md). Local n8n automation is described in [docs/automation/n8n.md](docs/automation/n8n.md). The Wayfinder map is [APT public notices crawler and notification plan](https://github.com/darkrei08/apt-cron-albo-pretorio/issues/1). It records the operator decisions and the linked ticket graph. The current dependency order is in [docs/wayfinder-execution-order.md](docs/wayfinder-execution-order.md). Decision records are in [docs/adr/](docs/adr/), and the historical Telegram validation checklist is in [docs/validation/telegram-private-channel.md](docs/validation/telegram-private-channel.md). The operator-only protected-host checklist is in [docs/operations/operator-handoff.md](docs/operations/operator-handoff.md).
 
 ## How it works
 
@@ -61,8 +61,8 @@ No third-party Python package is required.
 | `APT_TELEGRAM_PROFILE` | no | `production` | Destination profile: `production` or `test`; selects which credential names are read |
 | `TELEGRAM_BOT_TOKEN` | yes in `production` mode, unless `--dry-run` or `--refresh-index` | none | Production bot token; only from the environment or a protected env file |
 | `TELEGRAM_CHAT_ID` | yes in `production` mode, unless `--dry-run` or `--refresh-index` | none | Production channel or chat identifier |
-| `APT_TEST_TELEGRAM_BOT_TOKEN` | yes in `test` mode, unless `--dry-run` or `--refresh-index` | none | Test bot token; never reused as production credentials |
-| `APT_TEST_TELEGRAM_CHAT_ID` | yes in `test` mode, unless `--dry-run` or `--refresh-index` | none | Test channel or chat identifier |
+| `APT_TEST_TELEGRAM_BOT_TOKEN` | yes in `test` mode, unless `--dry-run` or `--refresh-index` | none | Legacy profile name for the production-classified GitHub Actions bot token; see [ADR 0014](docs/adr/0014-production-credential-override-and-destination-channel.md) |
+| `APT_TEST_TELEGRAM_CHAT_ID` | yes in `test` mode, unless `--dry-run` or `--refresh-index` | none | Legacy profile name for the production-classified Destination chat id; see ADR 0014 |
 | `APT_SOURCE_URL` | no | `https://siopi.publisys.it/kapi-aptbasilicata/api/pap/filter` | API base URL, without query string |
 | `APT_NATURE_ID` | no | `200152` | Notice category identifier from the source |
 | `APT_PAGE_SIZE` | no | `20` | Number of notices requested per run |
@@ -76,14 +76,16 @@ The generated `state/` directory and Telegram credentials are not committed.
 
 ## Destination profiles and where secrets belong
 
-The default profile is `production`. Set `APT_TELEGRAM_PROFILE=test` only for isolated validation in
-a private test channel. The program reads only the credential names selected by the profile; test
-credentials never fall back to production credentials, and an unknown profile exits with code `2`.
+The default profile is `production` and remains the host cron profile. `APT_TELEGRAM_PROFILE=test`
+selects the legacy `APT_TEST_TELEGRAM_*` names. Under [ADR 0014](docs/adr/0014-production-credential-override-and-destination-channel.md),
+GitHub Actions uses that profile with production-classified Destination-channel credentials. The
+program reads only the names selected by the profile; the two name sets never fall back to each
+other, and an unknown profile exits with code `2`.
 
 | Profile | Required variables | Where the operator writes them |
 | --- | --- | --- |
 | `production` | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Protected file `/etc/apt-cron/albo.env`, mode `0600`, or a gitignored local `.env` for development. The cron job points `APT_ENV_FILE` at the protected file. |
-| `test` | `APT_TEST_TELEGRAM_BOT_TOKEN`, `APT_TEST_TELEGRAM_CHAT_ID` | A separate gitignored local file such as `.env.test` (already ignored by `.env.*`), pointed to by `APT_ENV_FILE`, with mode `0600`. Use a dedicated bot and private test channel. |
+| `test` | `APT_TEST_TELEGRAM_BOT_TOKEN`, `APT_TEST_TELEGRAM_CHAT_ID` | A gitignored local file such as `.env.test` for isolated checks, mode `0600`. In GitHub Actions these names hold protected production-classified Destination credentials per ADR 0014; never install them in the host cron. |
 
 Never put a token or chat id in a shell command, crontab line, issue, log, commit or this README.
 The script redacts the selected token in its error output. A token pasted into a chat must be treated
@@ -211,10 +213,12 @@ mailbox, and the environment-file path with the protected production file. Never
 values to the crontab line. Set `CRON_TZ` and `TZ` to `Europe/Rome`, keep `APT_TELEGRAM_PROFILE=production`
 explicit, and set `MAILTO` so cron mails the redacted failure output to the maintainer. Do not redirect
 cron output to `cron.log` if `MAILTO` is the alert path; add a separate logging handler when persistent
-logs are required. A test profile must never be installed in the hourly cron entry.
+logs are required. The host cron keeps `APT_TELEGRAM_PROFILE=production`; only GitHub Actions uses the test profile
+with production-classified credentials (ADR 0014).
 
 The hourly `.github/workflows/update-index.yml` workflow publishes new or changed acts and refreshes
-the generated index. It uses the `APT_TEST_TELEGRAM_*` repository secrets with the `test` profile. Each
+the generated index. It uses the protected `APT_TEST_TELEGRAM_*` repository secrets with the `test`
+profile; ADR 0014 classifies those values as production Destination-channel credentials. Each
 run seeds its state from the committed `public/index.json`, calls `apt_cron.py`, writes an hourly Markdown
 report and a daily Markdown report, and commits generated `public/index.*` and `reports/**/*.md` files
 with the repository `GITHUB_TOKEN`. The job summary shows the check time in `Europe/Rome`, the outcome

@@ -41,12 +41,8 @@ A destination where Public notice metadata becomes visible to readers. The proje
 _Avoid_: sink, target, outlet
 
 **Destination channel**:
-The Telegram chat that receives the plain-text notice message and the PDF documents for each published Public notice.
-_Avoid_: group, target, inbox
-
-**Validation channel**:
-A private Telegram chat used to observe real message and document delivery before production use.
-_Avoid_: test group, sandbox
+The Telegram chat that the Operator designates as the Publication surface for Public notices. Historical validation does not create a separate channel.
+_Avoid_: test group, target, inbox
 
 **Operator**:
 The person responsible for credentials, scheduling, review and the publication, retention and withdrawal decisions.

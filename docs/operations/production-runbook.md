@@ -76,8 +76,10 @@ MAILTO=operator@example.invalid
 
 Replace the placeholder mailbox and host paths before installation. `CRON_TZ` is a crontab variable
 line, while `TZ` is part of the command environment. The separate `Publish acts and reports` GitHub
-Actions workflow uses the `APT_TEST_TELEGRAM_*` repository secrets with the `test` profile; it is not
-the production host job and does not change the release gate.
+Actions workflow uses the `APT_TEST_TELEGRAM_*` repository secrets with the `test` profile. Under
+[ADR 0014](../adr/0014-production-credential-override-and-destination-channel.md) those values are
+production-classified Destination-channel credentials; the host cron remains a different job with the
+protected production profile. This classification does not change the release gate.
 
 ## Monitor and observe
 
@@ -99,7 +101,7 @@ For a local check with no credentials and no repository write:
 
 ```sh
 cp public/index.json /tmp/index-before.json
-python3 apt_cron.py --refresh-index --index-dir /tmp/cron-index-check
+APT_INDEX_DIR=/tmp/cron-index-check python3 apt_cron.py --refresh-index
 python3 hourly_report.py --before /tmp/index-before.json --after /tmp/cron-index-check/index.json --stdout
 ```
 

@@ -1,6 +1,7 @@
 # 0003 — Production secret storage and schedule ownership
 
 - Status: accepted
+- Superseded by: [ADR 0014](0014-production-credential-override-and-destination-channel.md) for GitHub Actions credential names and Destination-channel classification; the protected host file and production-profile names remain in force.
 - Decision record: GitHub issue #9 (closed)
 
 ## Context

@@ -1,19 +1,22 @@
 # 0007 — Release gate for the faibtes production rollout
 
-- Status: HOLD; parts 1-2 PASS, parts 3-5 blocked by missing rotated credentials and unexecuted operator evidence
+- Status: HOLD; parts 1-2 PASS, parts 3-5 blocked by missing rotated production-classified credentials and unexecuted operator evidence
+- Credential names: [ADR 0014](0014-production-credential-override-and-destination-channel.md) supersedes the separated names below for GitHub Actions; rotation remains mandatory
 - Decision record: GitHub issue #13 (closed after issues #9, #10, #11 and #12)
 
 ## Context
 
-There is no deployment artifact and no production run. The repository contains two workflows and no
-packaging or ops file:
+There is no deployment artifact and no production run. At the time of this decision the repository
+contained two workflows and no packaging or ops file; the current workflow set is documented in
+`docs/ci-cd.md`:
 
 - `.github/workflows/ci.yml` runs on push to `main` and on pull requests: it checks out, sets up
   Python 3.11, runs `python3 -m py_compile apt_cron.py tests/test_apt_cron.py` and then
   `python3 -m unittest discover -s tests -v`.
-- `.github/workflows/update-index.yml` runs hourly and on manual dispatch: it runs
-  `apt_cron.py --refresh-index` with `TZ: Europe/Rome` and commits changed `public/index.*` with the
-  repository `GITHUB_TOKEN`. It needs no Telegram credentials.
+- `.github/workflows/update-index.yml` ran hourly and on manual dispatch: at that time it ran
+  `apt_cron.py --refresh-index` with `TZ: Europe/Rome` and committed changed `public/index.*` with the
+  repository `GITHUB_TOKEN`. It needed no Telegram credentials. The current workflow also publishes
+  acts and reports and is documented in `docs/ci-cd.md`.
 - Current GitHub Actions evidence includes a successful CI run for checked-in commit
   `cef13761aed1f33d9847395588763a656e1a8a98` at
   [run 45844836581](https://github.com/darkrei08/apt-cron-albo-pretorio/actions/runs/45844836581),
@@ -47,7 +50,7 @@ is not a release.
 2. **CI evidence exists on GitHub.** A run of `ci.yml` on `main` or on a pull request target shows
    the compile step and the full test suite green, and the commits carrying the release are pushed
    so that run refers to them. Local test runs do not satisfy this part.
-3. **Private-channel validation passed.** `docs/validation/telegram-private-channel.md` has every
+3. **Destination-channel validation passed.** `docs/validation/telegram-private-channel.md` has every
    core item at PASS or an explicitly accepted FAIL with a named owner, covering the current HTML
    render, official link, in-memory PDF upload, PDF size and caption bound. A NOT RUN / non-applicable
    disposition with a named owner is allowed only for an item that genuinely cannot apply, such as
@@ -117,4 +120,4 @@ Open operator inputs:
 ## Not verified
 
 The release commit `979a03d756673da9ba38e4605e5062d0a8d74da9` has a successful CI run
-([45904384468](https://github.com/darkrei08/apt-cron-albo-pretorio/actions/runs/45904384468)) and is installed at `/opt/apt-cron-pretorio` on host `herdr`. Parts 1 and 2 are PASS. Parts 3-5 remain BLOCKED: rotated `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` are absent from the protected environment file, so no real HTML validation, publication, manual production run, cron activation, 24-hour observation or rollback rehearsal has occurred. The archive dry run found 748 notices with 725 attachment errors and sent nothing. No GO is claimed; see `docs/validation/production-rollout-2026-11-26.md`.
+([45904384468](https://github.com/darkrei08/apt-cron-albo-pretorio/actions/runs/45904384468)) and is installed at `/opt/apt-cron-pretorio` on host `herdr`. Parts 1 and 2 are PASS. Parts 3-5 remain BLOCKED: rotated production-classified credentials are absent from the protected environment files, so no real HTML validation, publication, manual production run, cron activation, 24-hour observation or rollback rehearsal has occurred. ADR 0014 classifies the GitHub Actions `APT_TEST_TELEGRAM_*` values as Destination-channel production credentials while the host cron keeps the ADR 0003 production-profile names. The archive dry run found 748 notices with 725 attachment errors and sent nothing. No GO is claimed; see `docs/validation/production-rollout-2026-11-26.md`.

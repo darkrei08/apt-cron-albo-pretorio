@@ -13,8 +13,12 @@ credentials through a local env file (`APT_ENV_FILE`), and the recorded results 
 
 - Python 3.11 or newer on the machine performing the check.
 - A private test channel (or a test group) where the bot is an administrator with permission to post
-  messages and send documents.
-- A dedicated test bot token and the test channel's chat id, obtained and owned as follows:
+  messages and send documents. This was the historical setup for this checklist, not a current
+  second publication surface.
+- A dedicated bot token and chat id for the historical validation check, obtained and owned as follows:
+  - **Classification.** Under [ADR 0014](../adr/0014-production-credential-override-and-destination-channel.md)
+    the historical validation chat is the Destination channel for GitHub Actions and the separate
+    Validation channel is retired. This checklist remains historical validation evidence.
   - **Token and chat owner.** Accepted: the repository operator supplies these values through
     a gitignored env file such as `.env.test`, never on a command line that lands in shell history.
     The file must be mode `0600` and is selected with `APT_ENV_FILE`. The test values belong only in
@@ -70,6 +74,10 @@ current schema.
 
 ## V3 — Publish one notice
 
+The V3 and V4 steps are historical procedures. Rerun them only under explicit operator authorization
+for a Destination-channel publication; ADR 0014 classifies the chat as production and does not
+authorize publication by itself.
+
 Make one already-seeded notice publishable again. For that key, remove it from `notices` and
 `sent_messages`, and remove every `sent_documents` entry whose value equals the key. Keep the rest
 of the JSON intact, then repeat the V2 command. Removing only `notices` leaves `sent_messages` and
@@ -107,7 +115,8 @@ Check against the message from V3:
 8. Screen-reader order is linear: headline, identity, links, visible fields, then the expandable quote.
 
 Result: HISTORICAL PASS for the plain-text format; **NOT RUN for the current HTML format**. The
-repository operator must rerun V4 in the private validation channel before the release gate can pass.
+repository operator must rerun V4 against the Destination channel under ADR 0014 before the release
+gate can pass. The retired private Validation channel is not a valid destination for that rerun.
 
 ## V5 — Document delivery as uploaded bytes
 
@@ -168,11 +177,12 @@ only `notices` is insufficient because `sent_messages` suppresses the text messa
 `sent_documents` suppresses uploads. Alternatively use a genuinely new notice. If no publishable
 notice exists, the invalid-token case is NOT RUN.
 
-Put a deliberately invalid test token and the test chat id in `.env.test` using the
-`APT_TEST_TELEGRAM_*` names, keep `APT_TELEGRAM_PROFILE=test`, and run it without printing the file:
+Put a deliberately invalid token and the Destination chat id in a temporary env file outside the
+repository, for example `/tmp/apt-invalid.env`, using the `APT_TEST_TELEGRAM_*` names. Do not overwrite
+`.env.test`; delete the temporary file after the check. Run it without printing the file:
 
 ```sh
-python3 apt_cron.py
+APT_ENV_FILE=/tmp/apt-invalid.env APT_TELEGRAM_PROFILE=test python3 apt_cron.py
 ```
 
 Expected: exit code `1`, one stderr line beginning `error:`, no traceback, and the token value not

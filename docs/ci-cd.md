@@ -1,6 +1,6 @@
 # GitHub CI/CD
 
-This repository publishes only through GitHub. There is no npm package, no PyPI package and no container registry publication. The hourly publication workflow uses the two protected test Telegram repository secrets; the other workflows do not use repository secrets. No npm, PyPI or container registry credential is used.
+This repository has no npm package, no PyPI package and no container registry publication. The hourly GitHub publication workflow uses two protected Telegram repository secrets with legacy `APT_TEST_*` names, classified as production Destination-channel credentials by [ADR 0014](adr/0014-production-credential-override-and-destination-channel.md); the operator-managed host cron uses protected production-profile credentials. Other workflows do not use repository secrets. No npm, PyPI or container registry credential is used.
 
 ## Workflows
 
@@ -45,4 +45,4 @@ Current recorded state:
 
 - Real Telegram alert delivery.
 - Windows and macOS.
-- Manual count of 748 chat messages; the count is verified by state and dry-run.
+- Manual count of 748 chat messages; the archive dry run counted 748 source notices and sent nothing, so no chat-message count was verified.

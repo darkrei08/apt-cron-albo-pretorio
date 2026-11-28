@@ -1,6 +1,7 @@
 # 0006 — Notification format and channel
 
 - Status: accepted; superseded for message formatting by [ADR 0009](0009-readable-telegram-act-message.md)
+- Superseded by: [ADR 0014](0014-production-credential-override-and-destination-channel.md) for the retired Validation channel classification; the single Destination channel choice remains.
 - Decision record: GitHub issue #7 (closed after issues #11 and #6)
 
 ## Context
@@ -84,7 +85,7 @@ Decisions the operator must make are marked `[INSERT DECISION]` with a recommend
    through the public run path.
 6. **Format acceptance sign-off.** Accepted after the private-channel check: the rendered message,
    category and sector hashtags, official link and both PDF documents were observed in channel
-   `-1005772944869`. The bounded caption and the full field set rendered as designed.
+   the protected historical validation chat. The bounded caption and the full field set rendered as designed.
 
 ## Consequences
 
