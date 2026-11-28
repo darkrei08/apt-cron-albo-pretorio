@@ -733,6 +733,8 @@ def format_message(notice, detail_base, updated=False, archived=False, today=Non
     head = [
         f"<b>{headline}</b>",
         f"<u>Atto {_esc(notice.get('number'))}/{_esc(notice.get('year'))}</u>",
+        "",
+        "<b>Collegamenti</b>",
     ]
     detail_url = notice.get("detail_url") or build_detail_url(
         detail_base, notice.get("id") or ""
@@ -740,28 +742,30 @@ def format_message(notice, detail_base, updated=False, archived=False, today=Non
     head.append(_link(detail_url, "Atto ufficiale"))
     if notice.get("document_url"):
         head.append(_link(notice["document_url"], "PDF ufficiale"))
-    for url in notice.get("attachment_urls") or []:
-        head.append(_link(url, "Allegato"))
+    attachments = notice.get("attachment_urls") or []
+    for index, url in enumerate(attachments, 1):
+        label = f"Allegato {index}" if len(attachments) > 1 else "Allegato"
+        head.append(_link(url, label))
+    head.extend(["", "<b>Titolo</b>"])
     if notice.get("title"):
-        head.append(f"<b>Titolo:</b> {_esc(notice['title'])}")
+        head.append(_esc(notice["title"]))
+    head.extend(["", "<b>Date e responsabile</b>"])
     if notice.get("published"):
-        head.append(f"<b>Pubblicato il:</b> {_esc(_display_date(notice['published']))}")
+        head.append(f"Pubblicato il: {_esc(_display_date(notice['published']))}")
     if notice.get("expires"):
-        head.append(f"<b>Scade il:</b> {_esc(_display_date(notice['expires']))}")
+        head.append(f"Scade il: {_esc(_display_date(notice['expires']))}")
     if notice.get("cntResponsabileProcedimento"):
-        head.append(
-            f"<b>Responsabile:</b> {_esc(notice['cntResponsabileProcedimento'])}"
-        )
+        head.append(f"Responsabile: {_esc(notice['cntResponsabileProcedimento'])}")
     if notice.get("cntDataDocumentoOrigine"):
-        head.append(
-            f"<b>Documento del:</b> {_esc(_display_date(notice['cntDataDocumentoOrigine']))}"
-        )
+        head.append(f"Documento del: {_esc(_display_date(notice['cntDataDocumentoOrigine']))}")
+    head.extend(["", "<b>Classificazione e stato</b>"])
     tags = [f"#{_hashtag(notice.get('category'))}", f"#{_hashtag(notice.get('sector'))}"]
     tags = [tag for tag in tags if len(tag) > 1]
     if tags:
         head.append(" ".join(_esc(tag) for tag in tags))
     if notice.get("status"):
-        head.append(f"<b>Stato:</b> {_esc(notice['status'])}")
+        head.append(f"Stato: {_esc(notice['status'])}")
+    head.append("")
     quote = [
         f"{_esc(label)}: {_esc(value)}" for label, value in _field_rows(notice, MESSAGE_MAIN_FIELDS)
     ]

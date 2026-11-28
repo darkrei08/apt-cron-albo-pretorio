@@ -22,11 +22,13 @@ captions stay at 0-1024 characters.
 
 `format_message` renders Telegram HTML and `publish_message` sends `parse_mode: HTML`.
 
-1. **Visible part.** Bold headline, the act number and year underlined, then in order: title,
-   published date, expiry date, document date from `cntDataDocumentoOrigine` when present, the category
-   and sector hashtags on one line, the status, and the labelled official link. The PDF document and
-   attachment links follow as labelled links. The newest act is the last message in the chat, and inside
-   the message its identity is now the first thing read.
+1. **Visible part.** Bold headline, the act number and year underlined, then four blank-line-separated
+   sections: `Collegamenti` with the official link, PDF and one numbered link per attachment;
+   `Titolo` with the title on its own line; `Date e responsabile` with publication, expiry,
+   responsibility and source-document date when present; `Classificazione e stato` with the category
+   and sector hashtags on one line and the status on the next. Field values are plain text; only the
+   section names, headline and act identity are emphasised. No emoji is used. The newest act is the
+   last message in the chat, and inside the message its identity is now the first thing read.
 2. **The headline states the act state.** Four fixed Italian labels describe updated, expired, archived
    and new notices, decided in that order. An update label is used when the notice changed since the
    last run; an expired label is used when `status` is `SCADUTO` or `expires` is a parsable ISO date
@@ -39,16 +41,16 @@ captions stay at 0-1024 characters.
    inside `<blockquote expandable>` when the message budget permits. The quote collapses in the
    client, so normal messages stay compact; the global bound may clip trailing quote lines for
    pathological input.
-3. **Unknown expiry is explicit.** When `expires` is empty the visible part carries no expiry line and
+4. **Unknown expiry is explicit.** When `expires` is empty the visible part carries no expiry line and
    the quote starts with the tested Italian unknown-expiry marker, so a reader never has to guess
    whether an act has no end date or the data is missing.
-4. **Escaping.** Every dynamic value, hashtag and URL passes through `html.escape(..., quote=True)`.
+5. **Escaping.** Every dynamic value, hashtag and URL passes through `html.escape(..., quote=True)`.
    Values are clipped after escaping, and the clip never ends inside an entity or a tag, so a hostile
    or long value cannot inject markup and cannot break the message.
-5. **Bound.** The rendered HTML is bounded at `TELEGRAM_TEXT_LIMIT` (4096). The visible part shrinks
+6. **Bound.** The rendered HTML is bounded at `TELEGRAM_TEXT_LIMIT` (4096). The visible part shrinks
    only by dropping whole trailing lines (never a partial tag), and the quote body is clipped to the
    remaining budget. A normal act never reaches the bound.
-6. **Unchanged.** One destination channel, the document captions, the publication order, the state,
+7. **Unchanged.** One destination channel, the document captions, the publication order, the state,
    the index and the field set are untouched. ADR 0006 remains the record for the channel and the
    caption decision.
 
@@ -82,7 +84,7 @@ the same `_field_rows` used by the index, so the message and the index cannot dr
   `_is_expired`, `_act_headline`, `format_message`, `run_once` (passes `archive` and `today`),
   `publish_message` (`parse_mode`), `_display_date` (tolerates a non-ISO value),
   `TELEGRAM_TEXT_LIMIT`.
-- `tests/test_apt_cron.py`: `FormatMessageTest` (exact layout, escaping, unknown expiry, document date,
+- `tests/test_apt_cron.py`: `FormatMessageTest` (exact spaced layout, escaping, unknown expiry, document date,
   every public field in the quote, no internal field, the four headlines and their precedence),
   `BackfillHeadlineTest` (a backfill labels the history archived and an act expired before `today`),
   `RunOnceTest` (a regular run keeps the new/updated headline), `PublishMessageTest.test_posts_html_to_telegram`,

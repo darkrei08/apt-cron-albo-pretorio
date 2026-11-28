@@ -176,16 +176,16 @@ class FormatMessageTest(unittest.TestCase):
 
         message = apt_cron.format_message(notice, "https://example.test/base")
         lines = message.splitlines()
-        expiry = next(i for i, line in enumerate(lines) if line.startswith("<b>Scade il:</b>"))
+        expiry = next(i for i, line in enumerate(lines) if line.startswith("Scade il: "))
         responsible = next(
-            i for i, line in enumerate(lines) if line.startswith("<b>Responsabile:</b>")
+            i for i, line in enumerate(lines) if line.startswith("Responsabile: ")
         )
 
         self.assertEqual(responsible, expiry + 1)
         self.assertIn("&lt;script&gt;", message)
         self.assertNotIn("<script>", message)
         self.assertEqual(
-            len(lines[responsible].split("</b> ", 1)[1]), apt_cron.MESSAGE_VALUE_LIMIT
+            len(lines[responsible].split(": ", 1)[1]), apt_cron.MESSAGE_VALUE_LIMIT
         )
         self.assertLessEqual(len(message), apt_cron.TELEGRAM_TEXT_LIMIT)
 
@@ -211,16 +211,25 @@ class FormatMessageTest(unittest.TestCase):
                 [
                     "<b>Nuovo atto APT Basilicata</b>",
                     "<u>Atto 244/2026</u>",
+                    "",
+                    "<b>Collegamenti</b>",
                     '<a href="https://siopi.publisys.it/sito-aptbasilicata/albo-pretorio/dettaglio/791962/dettaglio-pap">Atto ufficiale</a>',
                     '<a href="https://example.test/katti/public/pap/edoc/download/unico/6500/791962">PDF ufficiale</a>',
-                    '<a href="https://example.test/katti/public/pap/edoc/download/single/6500/791962/abc/notice.pdf">Allegato</a>',
-                    '<a href="https://example.test/katti/public/pap/edoc/download/single/6500/791962/def/non-pdf.png">Allegato</a>',
-                    "<b>Titolo:</b> Affidamento diretto per la sala espositiva",
-                    "<b>Pubblicato il:</b> 25/11/2026",
-                    "<b>Scade il:</b> 10/12/2026",
-                    "<b>Responsabile:</b> RESPONSABILE TEST",
+                    '<a href="https://example.test/katti/public/pap/edoc/download/single/6500/791962/abc/notice.pdf">Allegato 1</a>',
+                    '<a href="https://example.test/katti/public/pap/edoc/download/single/6500/791962/def/non-pdf.png">Allegato 2</a>',
+                    "",
+                    "<b>Titolo</b>",
+                    "Affidamento diretto per la sala espositiva",
+                    "",
+                    "<b>Date e responsabile</b>",
+                    "Pubblicato il: 25/11/2026",
+                    "Scade il: 10/12/2026",
+                    "Responsabile: RESPONSABILE TEST",
+                    "",
+                    "<b>Classificazione e stato</b>",
                     "#Delibera_del_Direttore_Generale #UFFICIO_AMMINISTRAZIONE",
-                    "<b>Stato:</b> PUBBLICATO",
+                    "Stato: PUBBLICATO",
+                    "",
                     "<blockquote expandable>ID: 791962</blockquote>",
                 ]
             ),
@@ -239,7 +248,7 @@ class FormatMessageTest(unittest.TestCase):
         )
 
         quote = quoted_part(message)
-        self.assertIn("Titolo:</b> Affidamento diretto per la sala espositiva", message)
+        self.assertIn("Affidamento diretto per la sala espositiva", message)
         self.assertIn("#UFFICIO_AMMINISTRAZIONE", message)
         for name in apt_cron.NOTICE_FIELDS:
             if name in apt_cron.MESSAGE_MAIN_FIELDS:
@@ -265,9 +274,9 @@ class FormatMessageTest(unittest.TestCase):
         message = apt_cron.format_message(notice, "https://example.test/dettaglio")
 
         self.assertIn(
-            "<b>Titolo:</b> Affidamento &lt;b&gt;&amp;&quot;x&quot;&lt;/b&gt;", message
+            "Affidamento &lt;b&gt;&amp;&quot;x&quot;&lt;/b&gt;", message
         )
-        self.assertIn("<b>Stato:</b> &lt;script&gt;", message)
+        self.assertIn("Stato: &lt;script&gt;", message)
         self.assertIn("Numero gara: gara &lt;&amp;&quot;1&quot;&gt;", message)
         self.assertIn(
             'href="https://example.test/dettaglio?a=1&amp;b=&quot;2&quot;"', message
@@ -292,12 +301,12 @@ class FormatMessageTest(unittest.TestCase):
 
         message = apt_cron.format_message(notice, "https://example.test/dettaglio")
 
-        self.assertIn("<b>Documento del:</b> 20/11/2026", message)
+        self.assertIn("Documento del: 20/11/2026", message)
         self.assertNotIn("Data documento di origine:", message)
 
         notice["cntDataDocumentoOrigine"] = "non una data"
         self.assertIn(
-            "<b>Documento del:</b> non una data",
+            "Documento del: non una data",
             apt_cron.format_message(notice, "https://example.test/dettaglio"),
         )
 
@@ -609,14 +618,16 @@ class SyntheticTelegramHtmlValidationTest(unittest.TestCase):
             {"chat_id": self.CHAT_ID, "text": message, "parse_mode": "HTML"},
         )
         self.assertEqual(
-            message.splitlines()[:3],
+            message.splitlines()[:5],
             [
                 "<b>Nuovo atto APT Basilicata</b>",
                 "<u>Atto 244/2026</u>",
+                "",
+                "<b>Collegamenti</b>",
                 f'<a href="{self.DETAIL_BASE}/791962">Atto ufficiale</a>',
             ],
         )
-        self.assertIn("<b>Titolo:</b> Affidamento diretto per la sala espositiva", message)
+        self.assertIn("<b>Titolo</b>\nAffidamento diretto per la sala espositiva", message)
         self.assert_balanced_html(message)
 
     def test_hostile_dynamic_values_are_escaped_without_raw_tags(self):
@@ -634,12 +645,12 @@ class SyntheticTelegramHtmlValidationTest(unittest.TestCase):
         message = apt_cron.format_message(notice, self.DETAIL_BASE)
 
         self.assertIn(
-            "<b>Titolo:</b> Affidamento &lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt; "
+            "Affidamento &lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt; "
             "&amp; &lt;img src=x onerror=1&gt;",
             message,
         )
         self.assertIn(
-            "<b>Stato:</b> &lt;/b&gt;&lt;/u&gt;&lt;svg/onload=alert(1)&gt;", message
+            "Stato: &lt;/b&gt;&lt;/u&gt;&lt;svg/onload=alert(1)&gt;", message
         )
         self.assertIn(
             "Numero gara: gara &quot;&gt;&amp;&lt;b&gt;injected&lt;/b&gt;", message
@@ -704,9 +715,9 @@ class SyntheticTelegramHtmlValidationTest(unittest.TestCase):
         self.assertIn(
             '<a href="https://example.test/documento-unico.pdf">PDF ufficiale</a>', message
         )
-        self.assertIn('<a href="https://example.test/allegato.pdf">Allegato</a>', message)
-        self.assertIn('<a href="https://example.test/allegato.png">Allegato</a>', message)
-        self.assertEqual(message.count(">Allegato</a>"), 2)
+        self.assertIn('<a href="https://example.test/allegato.pdf">Allegato 1</a>', message)
+        self.assertIn('<a href="https://example.test/allegato.png">Allegato 2</a>', message)
+        self.assertEqual(message.count(">Allegato "), 2)
         self.assertNotIn("link non disponibile", message)
         self.assert_balanced_html(message)
 
@@ -1018,12 +1029,12 @@ class PublicationOrderTest(unittest.TestCase):
                 line
                 for message in messages
                 for line in message.splitlines()
-                if line.startswith("<b>Pubblicato il:</b> ")
+                if line.startswith("Pubblicato il: ")
             ],
             [
-                "<b>Pubblicato il:</b> 20/11/2026",
-                "<b>Pubblicato il:</b> 24/11/2026",
-                "<b>Pubblicato il:</b> 25/11/2026",
+                "Pubblicato il: 20/11/2026",
+                "Pubblicato il: 24/11/2026",
+                "Pubblicato il: 25/11/2026",
             ],
         )
 
@@ -1180,12 +1191,12 @@ class BackfillTest(unittest.TestCase):
                 line
                 for message in messages
                 for line in message.splitlines()
-                if line.startswith("<b>Pubblicato il:</b> ")
+                if line.startswith("Pubblicato il: ")
             ],
             [
-                "<b>Pubblicato il:</b> 01/09/2026",
-                "<b>Pubblicato il:</b> 20/11/2026",
-                "<b>Pubblicato il:</b> 25/11/2026",
+                "Pubblicato il: 01/09/2026",
+                "Pubblicato il: 20/11/2026",
+                "Pubblicato il: 25/11/2026",
             ],
         )
         self.assertFalse([line for message in messages for line in message.splitlines() if line.startswith("PDF: ")])
@@ -2426,7 +2437,7 @@ class ProductionConfigTest(unittest.TestCase):
         self.assertIn('href="https://example.test/albo-pretorio/dettaglio/', message)
         self.assertIn('href="https://example.test/documento.pdf">PDF ufficiale</a>', message)
         self.assertIn('href="https://example.test/allegato.png">Allegato</a>', message)
-        self.assertIn("Titolo:", message)
+        self.assertIn("<b>Titolo</b>", message)
         for tag in ("b", "u", "blockquote", "a"):
             self.assertEqual(
                 message.count(f"<{tag}>") + message.count(f"<{tag} "),

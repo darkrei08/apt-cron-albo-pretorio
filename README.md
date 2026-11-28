@@ -4,18 +4,18 @@ Publishes new and changed notices from the official APT Basilicata public notice
 
 The repository owns two publication surfaces: the Telegram destination and the committed `public/index.*` files. It does not archive official documents, delete channel messages, or send anything unless a publication command is run.
 
-GitHub CI/CD and publication instructions are in [docs/ci-cd.md](docs/ci-cd.md). The Wayfinder map is [APT public notices crawler and notification plan](https://github.com/darkrei08/apt-cron-albo-pretorio/issues/1). It records the operator decisions and the linked ticket graph. The current dependency order is in [docs/wayfinder-execution-order.md](docs/wayfinder-execution-order.md). Decision records are in [docs/adr/](docs/adr/), and the live Telegram validation checklist is in [docs/validation/telegram-private-channel.md](docs/validation/telegram-private-channel.md). The operator-only protected-host checklist is in [docs/operations/operator-handoff.md](docs/operations/operator-handoff.md).
+GitHub CI/CD and publication instructions are in [docs/ci-cd.md](docs/ci-cd.md). The machine-readable CLI contract is in [docs/cli-contract.md](docs/cli-contract.md) and [docs/validation/cli-contract.json](docs/validation/cli-contract.json). Source-backed evidence for the external tooling decision is in [docs/validation/external-tooling-evidence.md](docs/validation/external-tooling-evidence.md). Local n8n automation is described in [docs/automation/n8n.md](docs/automation/n8n.md). The Wayfinder map is [APT public notices crawler and notification plan](https://github.com/darkrei08/apt-cron-albo-pretorio/issues/1). It records the operator decisions and the linked ticket graph. The current dependency order is in [docs/wayfinder-execution-order.md](docs/wayfinder-execution-order.md). Decision records are in [docs/adr/](docs/adr/), and the live Telegram validation checklist is in [docs/validation/telegram-private-channel.md](docs/validation/telegram-private-channel.md). The operator-only protected-host checklist is in [docs/operations/operator-handoff.md](docs/operations/operator-handoff.md).
 
 ## How it works
 
 1. Reads the official APT Basilicata public notices API once per run.
-2. Extracts every public field the register exposes for an act: 42 source keys covering title, category, sector, publication dates, year, notice number, status, the procedural responsible person and the remaining register fields, excluding only internal account, login, audit and remaining responsible-person keys.
+2. Extracts every public field the register exposes for an act, including title, category, sector, publication dates, year, notice number, status and the procedural responsible person, excluding internal account, login, audit and remaining responsible-person keys.
 3. Reads the official published PDF and every downloadable attachment link from the source attachment endpoint and caches them in local state.
 4. Compares SHA-256 fingerprints with local state.
 5. Sends a short Telegram HTML message with the official links, then uploads the published PDF and every downloadable attachment for new or changed notices: the bytes are fetched into memory and posted in multipart `sendDocument` bodies, bounded at 50 MB and never written to disk. Each document URL is sent once; the caption identifies the act number and year.
 6. Regenerates `public/index.json`, `public/index.md` and `public/index.html` from the same published fields.
 7. Saves state incrementally after each successful message and document, and commits a notice fingerprint only after all its documents have uploaded.
-8. A scheduled GitHub Actions workflow refreshes the index hourly and commits only changed `public/index.*` files.
+8. A scheduled GitHub Actions workflow publishes new and changed acts hourly, regenerates the index, writes hourly and daily Markdown reports, and commits generated files.
 
 Messages are always published oldest to newest, so within one run the newest act is the last message in
 the chat. The index keeps the source order, newest first.
@@ -106,17 +106,31 @@ its structural template; real values are escaped and clipped before sending:
 ```html
 <b>Nuovo atto APT Basilicata</b>
 <u>Atto &lt;number&gt;/&lt;year&gt;</u>
+
+<b>Collegamenti</b>
 <a href="https://.../dettaglio/&lt;id&gt;/dettaglio-pap">Atto ufficiale</a>
 <a href="https://.../download/unico/...">PDF ufficiale</a>
 <a href="https://.../download/single/...">Allegato</a>
-<b>Titolo:</b> &lt;title&gt;
-<b>Pubblicato il:</b> &lt;dd/mm/yyyy&gt;
-<b>Scade il:</b> &lt;dd/mm/yyyy&gt;
-<b>Responsabile:</b> &lt;responsible&gt;
+
+<b>Titolo</b>
+&lt;title&gt;
+
+<b>Date e responsabile</b>
+Pubblicato il: &lt;dd/mm/yyyy&gt;
+Scade il: &lt;dd/mm/yyyy&gt;
+Responsabile: &lt;responsible&gt;
+
+<b>Classificazione e stato</b>
 #Categoria_Con_Sottolineature #SETTORE
-<b>Stato:</b> &lt;status&gt;
+Stato: &lt;status&gt;
+
 <blockquote expandable>Label: value</blockquote>
 ```
+
+Blank lines separate four visible groups: links, title, dates and responsibility, and
+classification and status. Section names use bold text; field values stay plain. Two or more
+attachments are numbered `Allegato 1`, `Allegato 2`, and so on. No emoji is used: Telegram supports
+them, but they do not add reliable meaning to an administrative notice.
 
 The first line changes to `Atto aggiornato`, `Atto scaduto` or `Atto archiviato` according to the
 state of the notice. Tests in `tests/test_apt_cron.py` use fake transports and synthetic notices; they
