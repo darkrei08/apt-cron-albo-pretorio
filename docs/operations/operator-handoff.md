@@ -5,6 +5,10 @@ repository. It contains commands and evidence fields, not credentials. The repos
 have access to `/opt/apt-cron-pretorio`, `/etc/apt-cron`, `/var/lib/apt-cron`, `/run/apt-cron`,
 `/var/log/apt-cron` or the private Telegram channel.
 
+[ADR 0015](../adr/0015-actions-sole-publisher.md) makes GitHub Actions the only scheduler and
+publisher. Host-local publication and cron activation instructions below are historical; do not
+activate them while ADR 0015 stands.
+
 ADR 0007 and issue #32 remain **HOLD**. Opening a pull request and seeing CI pass only satisfies
 part 2; it does not authorize publication. Steps 5-9 are operator execution. Steps 5-6 and 9 may run
 before GO only under an explicit pilot authorization recorded by the release owner; that pilot must
@@ -42,8 +46,8 @@ Keep `APT_TELEGRAM_PROFILE=production` explicit. Isolated checks use a separate 
 with `APT_TELEGRAM_PROFILE=test` and the `APT_TEST_TELEGRAM_*` names; those values must never be
 installed in the hourly host job. Under
 [ADR 0014](../adr/0014-production-credential-override-and-destination-channel.md), GitHub Actions
-uses the same legacy names as production-classified Destination credentials, while the host cron keeps
-the production-profile names.
+uses the same legacy names as production-classified Destination credentials. Manual CLI runs use
+production-profile names from the protected file; no host cron is active under ADR 0015.
 
 ```sh
 sudo touch /etc/apt-cron/albo.env
@@ -60,17 +64,16 @@ the values themselves unrecorded.
 
 ## 3. Seed state without publishing
 
+Use the explicit seeder. Do not run `apt_cron.py` in publish mode while the gate is HOLD.
+
 ```sh
-export APT_ENV_FILE=/etc/apt-cron/albo.env
-export APT_TELEGRAM_PROFILE=production
-export APT_STATE_PATH=/var/lib/apt-cron/state/notices.json
-export APT_INDEX_DIR=/opt/apt-cron-pretorio/public
-export TZ=Europe/Rome
-/usr/bin/python3 apt_cron.py
+python3 publication_state.py \
+  --index /opt/apt-cron-pretorio/public/index.json \
+  --state /var/lib/apt-cron/state/notices.json
 ```
 
-Expected: exit code `0`, `published: 0`, a version-2 state file and regenerated `index.json`,
-`index.md` and `index.html`. No message may appear in the channel.
+Expected: exit code `0` and a version-2 state file. Confirm with a separate dry run that
+`published: 0` before any publication. No message may appear in the channel.
 
 Use isolated paths from `docs/validation/telegram-private-channel.md` for the private HTML
 validation. Do not reuse production state for that check.
@@ -91,7 +94,10 @@ accepted non-applicable item.
 
 This is the production publication to the private destination channel, not the isolated validation
 channel. It is irreversible: Telegram messages are permanent. Run it only under the explicit pilot
-authorization described above or after a recorded GO. Keep cron disabled until activation in step 7.
+authorization described above or after a recorded GO. Disable the `update-index.yml` workflow before
+this manual publication. After the run, reconcile the committed index with the manual result before
+re-enabling the workflow; otherwise the next scheduled run can repeat the publication. No host cron is
+active under ADR 0015.
 
 ```sh
 export APT_ENV_FILE=/etc/apt-cron/albo.env
@@ -121,8 +127,9 @@ the backfill is the last message.
 
 This single normal-mode run is the gate part 4 evidence run. A pilot authorization is required to
 collect this evidence before GO; the run follows the pilot backfill, is the only normal-mode run
-allowed, and does not activate the schedule. Without a pilot, this step is not authorized and the
-gate cannot reach GO. After the backfill is complete:
+allowed, and does not activate the schedule. Keep `update-index.yml` disabled during this run and
+reconcile its committed index before re-enabling it. Without a pilot, this step is not authorized and
+the gate cannot reach GO. After the backfill is complete:
 
 ```sh
 export APT_TELEGRAM_PROFILE=production
@@ -138,34 +145,26 @@ credential value.
 Record: exact commit, exit code, state path and mtime, notice count, published count, log path and
 index result.
 
-## 7. Activate the hourly cron entry (release execution)
+## 7. Keep the host cron inactive (release execution)
 
-Activate only after the GO recorded in step 10; a pilot for evidence gathering remains cron-disabled.
-Install the crontab shape from `README.md` with the real mailbox and paths. Do not place credentials
-in the crontab line.
-
-```cron
-CRON_TZ=Europe/Rome
-MAILTO=<OPERATOR_ALERT_ADDRESS>
-0 * * * * cd /opt/apt-cron-pretorio && TZ=Europe/Rome /usr/bin/flock -n /run/apt-cron/apt-cron.lock /bin/sh -c 'export APT_ENV_FILE=/etc/apt-cron/albo.env APT_TELEGRAM_PROFILE=production APT_STATE_PATH=/var/lib/apt-cron/state/notices.json APT_INDEX_DIR=/opt/apt-cron-pretorio/public; exec /usr/bin/python3 apt_cron.py'
-```
-
-Verify with `crontab -l` and `systemctl is-active cron`. Record the installation time and the named
-monitoring owner.
+Do not activate a host cron. ADR 0015 assigns scheduling, publication and state commit to the
+hourly GitHub Actions workflow alone. The previous crontab template is historical and is not an
+activation instruction. Record instead the workflow schedule, the named monitoring owner and the
+absence of a host cron entry.
 
 ## 8. Observe the first 24 hours
 
-For each hourly run, record exit status, state-file mtime, notice count, published count, lock
-contention and the `update-index` workflow result. Useful read-only commands:
+For each hourly run, record the Actions job status, outcome, notice count, published count, index
+commit and report artifact. Useful read-only commands:
 
 ```sh
-journalctl -u cron --since '<START>' --until '<END>'
-stat -c '%y %n' /var/lib/apt-cron/state/notices.json
 gh run list --repo darkrei08/apt-cron-albo-pretorio --workflow update-index.yml --limit 24
+gh run view <RUN_ID> --repo darkrei08/apt-cron-albo-pretorio
+git -C /opt/apt-cron-pretorio log --oneline -5
 ```
 
-A non-zero cron run, missing state update, unexpected publication count, persistent lock contention
-or a failed index workflow is an incident. Stop activation and follow the rollback step.
+A failed workflow or unexpected publication count is an incident. Disable the workflow and follow
+the rollback step; no host cron is active.
 
 Record: observer name, alert address, 24-hour window, table of hourly results and incident decision.
 
@@ -176,10 +175,10 @@ messages as the permanent record. Rehearse under the explicit pilot authorizatio
 GO; do not treat an unauthorized rehearsal as gate evidence.
 
 ```sh
-crontab -e          # comment out the apt_cron.py line; do not remove unrelated jobs
-crontab -l
 gh workflow disable update-index.yml --repo darkrei08/apt-cron-albo-pretorio
 ```
+
+No host cron entry exists to edit under ADR 0015.
 
 Confirm no new publication occurs. Revert only the current index files with a normal commit, then
 publish that commit through the normal review path so the index workflow does not overwrite it:
@@ -197,7 +196,7 @@ gh pr create --repo darkrei08/apt-cron-albo-pretorio --base main --head rollback
 
 Merge that PR only after the normal human approval. Do not rewrite Git history or force-push. Preserve state and logs. Record candidate commit, stop
 time, last successful run, index commit, reason and the owner who approved or rejected
-re-activation. Re-enable the cron entry and the workflow only after a new explicit GO.
+re-activation. Re-enable the workflow only after a new explicit GO. Do not re-enable a host cron while ADR 0015 stands.
 
 ## 10. Gate decision
 

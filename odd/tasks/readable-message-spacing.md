@@ -26,7 +26,7 @@ T4 (S1-S3): update README template and ADR for the new layout. Result: README te
 
 T5 (S6): run bounded local n8n file-read proof with built-in nodes, no secrets and no external alarm. Result: Compose image `2.49.8` pulled; proof workflow imported and executed with `N8N_RESTRICT_FILE_ACCESS_TO`; file-read output PASS with 20 notices and `acts_to_publish`; documentation workflow checked in. Telegram rendering and publication were not exercised by n8n.
 
-T6 (S4-S6): final verification and report. Result: 131 tests PASS, focused renderer tests PASS, dry-run PASS, n8n file-read proof PASS with 20 notices and `acts_to_publish`, Compose config PASS and `git diff --check` PASS. Telegram rendering is verified by unit tests, not by the n8n proof.
+T6 (S4-S6): final verification and report. Result at that slice: 131 tests PASS, focused renderer tests PASS, dry-run PASS, n8n file-read proof PASS with 20 notices and `acts_to_publish`, Compose config PASS and `git diff --check` PASS. Telegram rendering is verified by unit tests, not by the n8n proof. Current suite after the credential/shared-state slices: 138 tests PASS.
 
 ## Log
 

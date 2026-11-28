@@ -52,7 +52,7 @@ L7: User correction: `Mantieni: Nessun CLI-Anything runtime. Il contratto CLI de
 
 L8: User correction: `n8n locale: aggiunto come scheduler/allarme. Legge file del repo in sola lettura. Non esegue più headless e non pubblica atti.`
 
-L9: User correction: `Nessuna modifica a apt_cron.py. Esegui o conferma. Probe JSON live: results presente, totalPages: 1. python3 -m unittest discover -s tests: PASS, 130 test. python3 -m py_compile ...: PASS. docker compose config: PASS, porta 127.0.0.1:5678, volume /home/node/.n8n, repo montato read_only: true. git diff --check: PASS. Link relativi dei nuovi documenti: 0 mancanti.`
+L9: User correction: `Nessuna modifica a apt_cron.py. Esegui o conferma. Probe JSON live: results presente, totalPages: 1. python3 -m unittest discover -s tests: PASS, 130 test. python3 -m py_compile ...: PASS. docker compose config: PASS, porta 127.0.0.1:5678, volume /home/node/.n8n, repo montato read_only: true. git diff --check: PASS. Link relativi dei nuovi documenti: 0 mancanti.` The 130-test count is historical; current suite is 138 tests PASS.
 
 L10: External evidence received from the `external-tool-evidence` researcher: CLI-Anything `v0.4.0` release, cli-anything-hub `0.4.1`, cli-anything-n8n `2.4.7`; rust-anything `v5.0.1`; fast-anything Cargo `0.8.11`, indexed npm `0.8.6`, indexed releases `v0.8.9`-`v0.8.11`; api-anything repository `0.5.0` with a publish-state conflict between README and INSTALL.md. None is supported as a repository dependency; installation is blocked by repository policy and recorded, not bypassed.
 

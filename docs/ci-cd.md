@@ -1,6 +1,6 @@
 # GitHub CI/CD
 
-This repository has no npm package, no PyPI package and no container registry publication. The hourly GitHub publication workflow uses two protected Telegram repository secrets with legacy `APT_TEST_*` names, classified as production Destination-channel credentials by [ADR 0014](adr/0014-production-credential-override-and-destination-channel.md); the operator-managed host cron uses protected production-profile credentials. Other workflows do not use repository secrets. No npm, PyPI or container registry credential is used.
+This repository has no npm package, no PyPI package and no container registry publication. The hourly GitHub publication workflow uses two protected Telegram repository secrets with legacy `APT_TEST_*` names, classified as production Destination-channel credentials by [ADR 0014](adr/0014-production-credential-override-and-destination-channel.md); the host cron is inactive under ADR 0015 and is not a second publisher. Other workflows do not use repository secrets. No npm, PyPI or container registry credential is used.
 
 ## Workflows
 
@@ -9,7 +9,7 @@ This repository has no npm package, no PyPI package and no container registry pu
 | [Quality](../.github/workflows/quality.yml) | pushes to `main`, pull requests, manual dispatch, reusable call | Compiles sources and tests, runs the full suite, reads `VERSION` and reports the release gate. |
 | [Check and release](../.github/workflows/release.yml) | pushes to `main`, tags `v*`, manual dispatch with an existing tag | Calls Quality, validates version and gate, verifies the tag commit, then creates or reuses a GitHub Release. |
 | [Publish public index](../.github/workflows/pages.yml) | changes to `public/index.*` on `main`, manual dispatch | Deploys `public/` to GitHub Pages with `GITHUB_TOKEN` permissions only. |
-| [Publish acts and reports](../.github/workflows/update-index.yml) | hourly schedule, manual dispatch with optional dry run | Publishes new or changed acts, regenerates the index, writes hourly and daily Markdown reports, then commits generated files. |
+| [Publish acts and reports](../.github/workflows/update-index.yml) | hourly schedule, manual dispatch with optional dry run | Sole publisher and scheduler. Seeds ephemeral state from the committed index, regenerates the index, writes hourly and daily Markdown reports, then commits generated files. |
 
 ## Version contract
 
@@ -40,6 +40,7 @@ Current recorded state:
 5. Push tag `vX.Y.Z` from that exact commit, or dispatch Check and release with the existing tag.
 6. The workflow creates the GitHub Release if it does not exist. It never publishes to npm, PyPI or any other registry.
 7. GitHub Pages deploys `public/index.html` when `public/index.*` changes on `main`.
+8. Keep GitHub Actions as the only active scheduler and publisher; do not enable a host cron (ADR 0015).
 
 ## Not verified
 

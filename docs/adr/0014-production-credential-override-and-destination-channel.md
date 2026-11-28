@@ -29,18 +29,18 @@ returned FAIL until this decision was recorded.
 3. **Rotation.** The token previously shared in conversation must be rotated before GO. Credential
    values remain out of the repository, issues, logs and shell commands. This decision records no
    secret value.
-4. **Two schedulers.** GitHub Actions and the host cron publish to the same Destination channel.
-   This ADR does not define the shared-state protocol; that remains the scope of
-   [Define the shared-state protocol for the two production schedulers](https://github.com/darkrei08/apt-cron-albo-pretorio/issues/38).
-   Duplicate publication remains a release blocker until that protocol is decided.
+4. **Scheduler ownership.** The original two-scheduler decision is superseded by
+   [ADR 0015](0015-actions-sole-publisher.md): GitHub Actions is the sole scheduler and publisher,
+   and the host cron is not active. Credential names and Destination-channel classification below
+   remain in force.
 5. **Unchanged.** `apt_cron.py`, the CLI contract, the published field set, captions, index files,
    document handling and exit codes are unchanged. This is a documentation and classification
    decision only; it does not authorize publication, push, tag or release.
 
 ## Evidence
 
-- Operator decision: issue 26 resolution comment on GitHub.
-- Security findings routed to issue 37 and its verification comment on GitHub.
+- Operator decision: [issue 26 resolution comment](https://github.com/darkrei08/apt-cron-albo-pretorio/issues/26#issuecomment-7226565938).
+- Security findings routed to [issue 37](https://github.com/darkrei08/apt-cron-albo-pretorio/issues/37) and its [verification comment](https://github.com/darkrei08/apt-cron-albo-pretorio/issues/37#issuecomment-7226730894).
 - `README.md`, `GLOSSARY.md`, `docs/ci-cd.md`, ADR 0003, ADR 0006 and ADR 0007 are reconciled with
   this decision. No credential value is stored in this record.
 
@@ -48,7 +48,7 @@ returned FAIL until this decision was recorded.
 
 - A reader no longer sees test credentials described as reusable or production credentials described
   as a separate channel that does not exist.
-- The release gate remains `HOLD`. Rotation, host evidence and the shared-state protocol are still
-  required before GO.
+- The release gate remains `HOLD`. Rotation, current HTML validation and operator evidence are still
+  required before GO. The shared-state protocol is decided in ADR 0015.
 - Rollback is documentation-only: revert this ADR and the reconciled documentation if the operator
   reverses the credential classification.

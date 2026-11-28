@@ -76,7 +76,7 @@ The generated `state/` directory and Telegram credentials are not committed.
 
 ## Destination profiles and where secrets belong
 
-The default profile is `production` and remains the host cron profile. `APT_TELEGRAM_PROFILE=test`
+The default profile is `production` for CLI and manual runs. `APT_TELEGRAM_PROFILE=test`
 selects the legacy `APT_TEST_TELEGRAM_*` names. Under [ADR 0014](docs/adr/0014-production-credential-override-and-destination-channel.md),
 GitHub Actions uses that profile with production-classified Destination-channel credentials. The
 program reads only the names selected by the profile; the two name sets never fall back to each
@@ -84,7 +84,7 @@ other, and an unknown profile exits with code `2`.
 
 | Profile | Required variables | Where the operator writes them |
 | --- | --- | --- |
-| `production` | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Protected file `/etc/apt-cron/albo.env`, mode `0600`, or a gitignored local `.env` for development. The cron job points `APT_ENV_FILE` at the protected file. |
+| `production` | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Protected file `/etc/apt-cron/albo.env`, mode `0600`, or a gitignored local `.env` for development. Set `APT_ENV_FILE` at that file for CLI or manual runs. |
 | `test` | `APT_TEST_TELEGRAM_BOT_TOKEN`, `APT_TEST_TELEGRAM_CHAT_ID` | A gitignored local file such as `.env.test` for isolated checks, mode `0600`. In GitHub Actions these names hold protected production-classified Destination credentials per ADR 0014; never install them in the host cron. |
 
 Never put a token or chat id in a shell command, crontab line, issue, log, commit or this README.
@@ -199,30 +199,16 @@ export APT_TELEGRAM_PROFILE=production
 python3 apt_cron.py
 ```
 
-Hourly cron example:
-
-```cron
-CRON_TZ=Europe/Rome
-MAILTO=operator@example.invalid
-0 * * * * cd /path/to/cron-albo-pretorio && TZ=Europe/Rome APT_ENV_FILE=/etc/apt-cron/albo.env APT_TELEGRAM_PROFILE=production /usr/bin/flock -n /tmp/apt-cron.lock /usr/bin/python3 apt_cron.py
-```
-
-Customize the cron entry by replacing `/path/to/cron-albo-pretorio` with the installed checkout,
-`/tmp/apt-cron.lock` with the protected lock path, `operator@example.invalid` with the real alert
-mailbox, and the environment-file path with the protected production file. Never add token or chat
-values to the crontab line. Set `CRON_TZ` and `TZ` to `Europe/Rome`, keep `APT_TELEGRAM_PROFILE=production`
-explicit, and set `MAILTO` so cron mails the redacted failure output to the maintainer. Do not redirect
-cron output to `cron.log` if `MAILTO` is the alert path; add a separate logging handler when persistent
-logs are required. The host cron keeps `APT_TELEGRAM_PROFILE=production`; only GitHub Actions uses the test profile
-with production-classified credentials (ADR 0014).
+GitHub Actions is the only scheduler and publisher. A host cron is not installed or activated;
+[ADR 0015](docs/adr/0015-actions-sole-publisher.md) supersedes the earlier two-scheduler decision.
+For a manual local run, use an isolated state path and a protected environment file. Never add token
+or chat values to a shell command, crontab or commit.
 
 The hourly `.github/workflows/update-index.yml` workflow publishes new or changed acts and refreshes
 the generated index. It uses the protected `APT_TEST_TELEGRAM_*` repository secrets with the `test`
-profile; ADR 0014 classifies those values as production Destination-channel credentials. Each
-run seeds its state from the committed `public/index.json`, calls `apt_cron.py`, writes an hourly Markdown
-report and a daily Markdown report, and commits generated `public/index.*` and `reports/**/*.md` files
-with the repository `GITHUB_TOKEN`. The job summary shows the check time in `Europe/Rome`, the outcome
-and the same counts as the report.
+profile; ADR 0014 classifies those values as production Destination-channel credentials. Each run
+seeds runner-local state from the committed `public/index.json`, calls `apt_cron.py`, writes an hourly Markdown report and a daily Markdown report, and commits `public/index.*` and `reports/**/*.md` with the repository `GITHUB_TOKEN`. Runtime state is never committed.
+The job summary shows the check time in `Europe/Rome`, the outcome and the same counts as the report.
 
 To check whether a local dry run would send anything, convert its JSON output to a readable report:
 
@@ -273,8 +259,8 @@ the job, protecting logs, checking that the Telegram bot has the right permissio
   the missing document URLs and never resends the text message.
 - Cached document links are refreshed when a notice's source metadata changes; unchanged notices reuse their
   cached links.
-- `.github/workflows/ci.yml` compiles and runs the full test suite on pushes to `main` and pull requests;
-  `.github/workflows/update-index.yml` refreshes the committed index hourly.
+- `.github/workflows/quality.yml` compiles and runs the full test suite on pushes to `main`, pull requests, manual dispatch and reusable calls.
+- `.github/workflows/update-index.yml` is the sole hourly publisher and commits generated index and reports.
 
 ## Tests
 

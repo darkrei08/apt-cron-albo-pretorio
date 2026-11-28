@@ -19,14 +19,15 @@ Implementation stays bounded by the map; operator-only evidence remains blocked 
 
 - T1 (S1,S4,S5): Decide and implement the `sent_messages` migration and duplicate-PDF acceptance contract from Wayfinder ticket 33; route: developer + tests/reviewer; commits: `aad3360`, `1bcda80`; ticket 33 closed with evidence.
 - T2 (S1,S4): Reconcile the current implementation with the open readable-message/archive-backfill map from ticket 27; route: architect/reviewer; commits: `eaf5b97`, `1bcda80`; ticket 27 closed with explicit separate-scope dispositions.
-- T3 (S1,S2,S7): Select the production host, index destination and operational owner from ticket 26; route: operator decision; blocked until host details exist; commit: N/A.
+- T3 (S1,S2,S7): Select the production host, index destination and operational owner from ticket 26; route: operator decision; resolved by issue 26; scheduler count superseded by ADR 0015; commit: N/A.
 - T4 (S1,S2,S5,S7): Rotate credentials, define protected paths, install, validate, monitor and rehearse rollback through tickets 28-31; route: release/sre/security; blocked by T3 and operator-only actions; commit: pending.
 - T5 (S1,S2,S5,S6,S7): Make the final release-gate decision from ticket 32 only after T1-T4 evidence; route: release + independent verifier; commit: pending.
 - T6 (S1,S2,S7): Provide a concrete installation, validation, monitoring and rollback runbook for tickets 28-31 without claiming host execution; route: release/SRE documentation; commit: `0fab591`.
 - T7 (S1,S2,S7): Provision the local `herdr` host without reading credentials and keep cron disabled until the exact candidate is approved; route: release/SRE operations; evidence: `docs/validation/local-host-provisioning-2026-11-26.md`; commit: `a2e58e4`.
 - T8 (S1,S2,S5,S6,S7): Harden archive seeding, fail closed on malformed source data, isolate attachment failures per notice, and align the private Telegram checklist with all-attachment delivery; route: developer/tests/reviewer; commit: `23b8649`.
-- T9 (S2,S4,S5,S7): Add an explicit Telegram profile so test credentials cannot replace production credentials; route: developer/tests/security reviewer; commit: pending.
-- T10 (S2,S7): Expand README with repository purpose, test message template, secret locations, CLI commands and cron customization; route: technical writer; commit: pending.
+- T9 (S2,S4,S5,S7): Add an explicit Telegram profile so test credentials cannot replace production credentials; route: developer/tests/security reviewer; classification resolved by ADR 0014; commit: `99ab79f`.
+- T10 (S2,S7): Expand README with repository purpose, test message template, secret locations and CLI commands; route: technical writer; host cron section removed by ADR 0015; commit: `99ab79f`.
+- T11 (S1,S2,S4,S5): Resolve ticket 38 with GitHub Actions as sole publisher, ephemeral state seeded from the committed index and documentation reconciliation; route: architect/developer/tests; commit: pending.
 
 ## Log
 
@@ -46,3 +47,4 @@ Implementation stays bounded by the map; operator-only evidence remains blocked 
 - L14: Telegram HTTP 429 handling was added to `UrllibTransport` for both `sendMessage` and `sendDocument`, using `Retry-After` or JSON `parameters.retry_after`, six bounded attempts and a 60-second cap per wait. Nine tests cover HTTP header and JSON body retry (including a 429 body without the header), the 60-second cap, non-finite `Retry-After`, bounded exhaustion and non-Telegram isolation; 111 tests pass.
 - L15: Two archive resume runs were interrupted by `Errno 104 Connection reset by peer` after 120 and 403 total sent acts. `UrllibTransport` now retries transient Telegram `URLError` with bounded exponential backoff; `test_connection_reset_is_retried` covers the public interface. Total suite: 112 tests pass.
 - L16: The backfill completed with 748 sent messages and 46 sent documents. The operator then requested `Responsabile` in the descriptive message. ADR 0011 supersedes ADR 0005 for `cntResponsabileProcedimento` only; the field is projected, labelled, fingerprinted and rendered after `Scade il`, while the other responsible/login/audit fields remain excluded. Fixture, tests, README and glossary updated; 112 tests pass.
+- L17: Operator chose GitHub Actions as sole scheduler/publisher in ticket 38. ADR 0015 keeps runtime state ephemeral and seeds it from committed `public/index.json`; no runtime state is committed. Earlier counts (94, 80, 130, 131, 112) are historical; current suite is 138 tests PASS.
