@@ -115,7 +115,7 @@ would be sent to the destination channel.
 ## Gate mapping
 
 - Ticket 26: name the host, index destination and operational owner.
-- Ticket 28: rotate credentials and record only protected paths, ownership and modes.
+- Ticket 28: rotate the `APT_TEST_TELEGRAM_*` Actions secrets, record protected manual-run path metadata and link redacted evidence.
 - Ticket 29: execute and evidence the install, seed, manual run, activation and rollback steps above.
 - Ticket 30: rerun the current private-channel checklist and one manual production run.
 - Ticket 31: name the observer, alert destinations and rollback trigger.

@@ -40,14 +40,18 @@ worktree status. A different commit does not satisfy the gate.
 
 ## 2. Configure rotated credentials without exposing them
 
-The script supports a protected environment file through `APT_ENV_FILE`. The operator writes the
-rotated `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` out of band and never prints or commits them.
-Keep `APT_TELEGRAM_PROFILE=production` explicit. Isolated checks use a separate gitignored env file
-with `APT_TELEGRAM_PROFILE=test` and the `APT_TEST_TELEGRAM_*` names; those values must never be
-installed in the hourly host job. Under
-[ADR 0014](../adr/0014-production-credential-override-and-destination-channel.md), GitHub Actions
-uses the same legacy names as production-classified Destination credentials. Manual CLI runs use
-production-profile names from the protected file; no host cron is active under ADR 0015.
+The production credentials for scheduled publication are the GitHub Actions repository secrets
+`APT_TEST_TELEGRAM_BOT_TOKEN` and `APT_TEST_TELEGRAM_CHAT_ID`. Under
+[ADR 0014](../adr/0014-production-credential-override-and-destination-channel.md) they are
+production-classified credentials for the Destination channel. Rotate them in repository settings and
+record only rotation date, owner and a redacted evidence link in
+[production-credentials-evidence.md](../validation/production-credentials-evidence.md).
+
+For explicit manual CLI runs only, the script supports `APT_ENV_FILE` with the legacy production
+names `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`; keep `APT_TELEGRAM_PROFILE=production` explicit.
+Isolated checks use a separate gitignored env file with `APT_TELEGRAM_PROFILE=test` and the
+`APT_TEST_TELEGRAM_*` names. ADR 0015 keeps the host cron inactive; there is no hourly host job to
+install.
 
 ```sh
 sudo touch /etc/apt-cron/albo.env

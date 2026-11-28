@@ -51,6 +51,12 @@ both values missing.
 HTML validation, real publication and the manual production run are blocked until those values
 exist. The `MAILTO` operator alert address is also still required before cron activation.
 
+**Current classification (ADR 0014/0015):** the statement above is the 2026-11-26 observation. The
+scheduled publisher now uses the production-classified repository secrets
+`APT_TEST_TELEGRAM_BOT_TOKEN` and `APT_TEST_TELEGRAM_CHAT_ID`; host-file names apply only to explicit
+manual runs and no host cron is active. Record rotation metadata, never values, in
+[production-credentials-evidence.md](production-credentials-evidence.md).
+
 ## Archive dry run and state preparation
 
 Command, with no credentials and no Telegram traffic:

@@ -7,8 +7,8 @@
 ## Context
 
 The operator selected `herdr` as the production host, GitHub Pages as the public index destination and
-`darkrei08` as the sole operational owner. Two schedulers are intended: GitHub Actions and the host
-cron; their exact offsets belong to the separate shared-state decision. The operator explicitly chose to reuse
+`darkrei08` as the sole operational owner. Two schedulers were originally intended: GitHub Actions and the host
+cron. That arrangement was superseded by [ADR 0015](0015-actions-sole-publisher.md), which keeps GitHub Actions as the only publisher. The operator explicitly chose to reuse
 `APT_TEST_TELEGRAM_BOT_TOKEN` and `APT_TEST_TELEGRAM_CHAT_ID` as the credentials used by GitHub
 Actions, and to treat that chat as the production Destination channel. The former Validation channel
 is retired. ADR 0003 and ADR 0007 still describe separated production credential names, and the
