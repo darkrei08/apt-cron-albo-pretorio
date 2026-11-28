@@ -1,0 +1,21 @@
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    ports:
+      - "127.0.0.1:5678:5678"
+    environment:
+      TZ: Europe/Rome
+      GENERIC_TIMEZONE: Europe/Rome
+      N8N_HOST: localhost
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: http
+      WEBHOOK_URL: http://localhost:5678/
+      N8N_USER_FOLDER: /home/node/.n8n
+      N8N_RESTRICT_FILE_ACCESS_TO: /workspace/cron-albo-pretorio/public;/workspace/cron-albo-pretorio/reports
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - .:/workspace/cron-albo-pretorio:ro
+    restart: unless-stopped
+
+volumes:
+  n8n_data:

@@ -1,0 +1,155 @@
+{
+  "name": "apt-cron-proof",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "fileSelector": "/workspace/cron-albo-pretorio/public/index.json",
+        "options": {
+          "fileName": "index.json",
+          "mimeType": "application/json"
+        }
+      },
+      "id": "read-index",
+      "name": "Read index",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "fromJson",
+        "options": {}
+      },
+      "id": "extract-index",
+      "name": "Extract index JSON",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "fileSelector": "/workspace/cron-albo-pretorio/reports/latest.md",
+        "options": {
+          "fileName": "latest.md",
+          "mimeType": "text/markdown"
+        }
+      },
+      "id": "read-report",
+      "name": "Read report",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "text",
+        "options": {}
+      },
+      "id": "extract-report",
+      "name": "Extract report text",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.2,
+      "position": [
+        880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const indexItem = $('Extract index JSON').first().json;\nconst payload = indexItem.data || indexItem;\nconst notices = Array.isArray(payload.notices) ? payload.notices.length : -1;\nconst report = JSON.stringify($input.first().json);\nconst match = report.match(/Outcome:\\s*([A-Za-z_]+)/);\nconst outcome = match ? match[1] : 'unknown';\nconst validOutcomes = new Set(['acts_to_publish', 'no_new_acts_to_publish', 'new_acts', 'changed_acts', 'removed_acts', 'no_changes', 'seeded']);\nconst status = notices > 0 && validOutcomes.has(outcome) ? 'PASS' : 'FAIL';\nreturn [{ json: { status, check: 'n8n-builtin-file-read', index_notices: notices, report_outcome: outcome, source: 'public/index.json,reports/latest.md' } }];\n"
+      },
+      "id": "check",
+      "name": "Check files",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Read index",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read index": {
+      "main": [
+        [
+          {
+            "node": "Extract index JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract index JSON": {
+      "main": [
+        [
+          {
+            "node": "Read report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read report": {
+      "main": [
+        [
+          {
+            "node": "Extract report text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract report text": {
+      "main": [
+        [
+          {
+            "node": "Check files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "pinData": {},
+  "versionId": "apt-cron-proof-1"
+}
